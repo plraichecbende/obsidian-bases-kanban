@@ -23,7 +23,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/obsidian-bases-kanban-custom-view.git
+   git clone https://github.com/xiwcx/obsidian-bases-kanban-custom-view.git
    cd obsidian-bases-kanban-custom-view
    ```
 
@@ -74,6 +74,50 @@ npm run dev
 ```
 
 This will watch for changes and rebuild automatically.
+
+### Testing
+
+```bash
+npm test
+```
+
+### Type Checking
+
+```bash
+npm run typecheck
+```
+
+## Releasing
+
+### Version Bumping
+
+To bump the version manually (for local development):
+
+```bash
+npm run version
+```
+
+This will increment the minor version in `manifest.json`, `package.json`, and update `versions.json`.
+
+### Creating a Release
+
+1. **Update version**: Manually update the version in `manifest.json` following [Semantic Versioning](https://semver.org/), or use `npm run version` for minor version bumps.
+
+2. **Update versions.json**: Ensure the new version maps to the correct `minAppVersion` in `versions.json`.
+
+3. **Build**: Run `npm run build` to create production artifacts in the `dist/` directory.
+
+4. **Create GitHub Release**:
+   - Push your changes to the repository
+   - Create a git tag matching the version exactly (no `v` prefix): `git tag 0.36.0`
+   - Push the tag: `git push origin 0.36.0`
+   - The GitHub Actions workflow will automatically create a release and upload `main.js`, `manifest.json`, and `styles.css` as release assets
+
+   Alternatively, you can trigger the release workflow manually from the GitHub Actions tab.
+
+5. **Submit to Obsidian Community Plugins** (first release only):
+   - Follow the [Obsidian plugin submission guidelines](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin)
+   - Submit a PR to the [obsidian-releases](https://github.com/obsidianmd/obsidian-releases) repository
 
 ## Contributing
 
