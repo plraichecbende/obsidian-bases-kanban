@@ -353,8 +353,6 @@ export class KanbanView extends BasesView {
 			const parsedProperty = parsePropertyId(this.groupByPropertyId);
 			const propertyName = parsedProperty.name;
 			
-			console.log('Updating property:', propertyName, 'to value:', valueToSet, 'for file:', entry.file.path);
-			
 			await this.app.fileManager.processFrontMatter(entry.file, (frontmatter) => {
 				if (valueToSet === '') {
 					// Remove the property if setting to empty
@@ -364,7 +362,6 @@ export class KanbanView extends BasesView {
 				}
 			});
 			
-			console.log('Property updated successfully');
 			// The view will automatically update via onDataUpdated when the file changes
 		} catch (error) {
 			console.error('Error updating entry property:', error);
