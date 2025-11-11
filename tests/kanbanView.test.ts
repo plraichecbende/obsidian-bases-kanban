@@ -1,4 +1,3 @@
-import './setup.ts';
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import type { BasesPropertyId } from 'obsidian';

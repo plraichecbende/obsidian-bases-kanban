@@ -1,4 +1,3 @@
-import './setup.ts';
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
 import KanbanBasesViewPlugin, { KANBAN_VIEW_TYPE } from '../src/main.ts';
