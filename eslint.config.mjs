@@ -16,10 +16,7 @@ export default defineConfig([
 				console: "readonly",
 				document: "readonly",
 			},
-		},
-		rules: {
-			"@typescript-eslint/unbound-method": "off",
-		},
+		}
 	},
 
 	{

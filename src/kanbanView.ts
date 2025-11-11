@@ -396,7 +396,7 @@ export class KanbanView extends BasesView {
 		// No manual cleanup needed for listeners on child elements.
 	}
 
-	static getViewOptions(): ViewOption[] {
+	static getViewOptions(this: void): ViewOption[] {
 		return [
 			{
 				displayName: 'Group by',
