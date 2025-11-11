@@ -1,21 +1,17 @@
-import { pathToFileURL } from 'node:url';
-import { resolve as resolvePath } from 'node:path';
-
-const mockPaths = {
-	'obsidian': resolvePath('tests/mocks/obsidian.ts'),
-	'sortablejs': resolvePath('tests/mocks/sortablejs.js'),
-};
+// ESM loader for handling TypeScript files and module resolution
+// The package.json "imports" field handles most module resolution,
+// but this loader is still needed for TypeScript file compilation
 
 export async function resolve(specifier, context, nextResolve) {
-	// Intercept module specifiers that should be mocked BEFORE calling nextResolve
-	if (mockPaths[specifier]) {
-		return {
-			url: pathToFileURL(mockPaths[specifier]).href,
-			shortCircuit: true,
-		};
-	}
-	
+	// The package.json "imports" field handles resolution of 'obsidian' and 'sortablejs'
+	// Just pass through to let Node.js use the imports field
 	return nextResolve(specifier, context);
+}
+
+export async function load(url, context, nextLoad) {
+	// Handle TypeScript files - delegate to tsx or next loader
+	// The imports field resolves to .ts files, which need compilation
+	return nextLoad(url, context);
 }
 
 

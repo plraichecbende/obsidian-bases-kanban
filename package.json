@@ -3,6 +3,10 @@
 	"version": "0.1.0",
 	"description": "A kanban-style drag-and-drop custom view for Obsidian Bases",
 	"main": "main.js",
+	"imports": {
+		"obsidian": "./tests/mocks/obsidian.ts",
+		"sortablejs": "./tests/mocks/sortablejs.js"
+	},
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
@@ -28,7 +32,7 @@
 		"builtin-modules": "3.3.0",
 		"esbuild": "0.19.8",
 		"jsdom": "^24.0.0",
-		"obsidian": "latest",
+		"obsidian": "^1.5.8",
 		"tslib": "2.6.2",
 		"tsx": "^4.20.6",
 		"typescript": "5.3.3"
