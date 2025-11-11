@@ -6,7 +6,11 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 
 - **Dynamic Column Generation**: Select any property from your base to generate kanban columns automatically
 - **Drag and Drop**: Move cards between columns with smooth animations
+- **Column Reordering**: Drag columns by their handle (⋮⋮) to reorder them to your preference
+- **Column Order Persistence**: Your column order is saved per property and persists across sessions
 - **Property Selection**: Choose which property determines your columns (e.g., "Status", "Priority", "Category")
+- **Uncategorized Entries**: Notes without a value for the selected property are automatically grouped in an "Uncategorized" column
+- **Click to Open**: Click any card to open the corresponding note
 - **Visual Feedback**: Clear visual indicators during drag operations
 - **Responsive Design**: Works well on different screen sizes
 
@@ -43,16 +47,20 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 
 1. Create or open a Base in Obsidian
 2. Add a view and select "Kanban" as the view type
-3. Select the property you want to use for columns (e.g., "Status")
+3. Select the property you want to use for columns (e.g., "Status") in the "Group by" option
 4. Your notes will be automatically organized into columns based on the selected property's values
 5. Drag cards between columns to update the property value
+6. Click any card to open the corresponding note
+7. Drag columns by their handle (⋮⋮) to reorder them - your preferred order will be saved
 
 ### Example
 
 If your base has a "Status" property with values "To Do", "Doing", and "Done":
 - Select "Status" in the "Group by" dropdown
-- Three columns will appear: "To Do", "Doing", and "Done"
+- Three columns will appear: "To Do", "Doing", and "Done" (plus an "Uncategorized" column for notes without a status)
 - Drag cards between columns to change their status
+- Click any card to open the note
+- Drag columns by their handle to reorder them - your order preference will be remembered
 
 ## Development
 
