@@ -2,6 +2,10 @@
 
 A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to organize your notes into columns based on any property.
 
+## Demo
+
+<video src="https://github.com/user-attachments/assets/933e075a-041d-40ea-b65a-13944173c95f" controls width="100%"></video>
+
 ## Features
 
 - **Dynamic Column Generation**: Select any property from your base to generate kanban columns automatically
