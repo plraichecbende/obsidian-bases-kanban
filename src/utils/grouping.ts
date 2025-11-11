@@ -37,13 +37,13 @@ export function normalizePropertyValue(value: unknown): string {
 	
 	// Value objects from Obsidian Bases have toString()
 	if (typeof value === 'object' && 'toString' in value && typeof value.toString === 'function') {
-		const stringValue = value.toString().trim();
+		const stringValue = (value.toString as () => string)().trim();
 		return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
 	}
 	
 	// Fallback for primitives (shouldn't happen in production, but keeps tests simple)
-	const stringValue = String(value).trim();
-	return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
+	const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+	return stringValue.trim() === '' ? UNCATEGORIZED_LABEL : stringValue.trim();
 }
 
 

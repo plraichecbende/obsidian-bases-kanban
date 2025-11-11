@@ -1,6 +1,6 @@
 {
 	"name": "kanban-bases-view",
-	"version": "0.1.2",
+	"version": "0.1.4",
 	"description": "A kanban-style drag-and-drop custom view for Obsidian Bases",
 	"main": "main.js",
 	"imports": {
@@ -11,7 +11,9 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"typecheck": "tsc -noEmit -skipLibCheck",
-		"test": "NODE_NO_WARNINGS=1 tsx --tsconfig tsconfig.test.json --test"
+		"test": "NODE_NO_WARNINGS=1 tsx --tsconfig tsconfig.test.json --test",
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix"
 	},
 	"keywords": [
 		"obsidian",
@@ -24,12 +26,14 @@
 	"license": "MIT",
 	"devDependencies": {
 		"@types/jsdom": "^21.1.6",
-		"@types/node": "^20.10.0",
+		"@types/node": "^24.0.0",
 		"@types/sortablejs": "^1.15.9",
-		"@typescript-eslint/eslint-plugin": "6.13.1",
-		"@typescript-eslint/parser": "6.13.1",
+		"@typescript-eslint/eslint-plugin": "^8.0.0",
+		"@typescript-eslint/parser": "^8.0.0",
 		"builtin-modules": "3.3.0",
 		"esbuild": "0.19.8",
+		"eslint": "^9.0.0",
+		"eslint-plugin-obsidianmd": "^0.1.8",
 		"jsdom": "^24.0.0",
 		"obsidian": "^1.5.8",
 		"tslib": "2.6.2",

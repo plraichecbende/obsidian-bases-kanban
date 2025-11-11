@@ -25,7 +25,7 @@ export default class KanbanBasesViewPlugin extends Plugin {
 	}
 
 	private async loadSettings(): Promise<void> {
-		this.columnOrders = Object.assign({}, await this.loadData() || {});
+		this.columnOrders = Object.assign({}, (await this.loadData() as ColumnOrderSettings | null) || {});
 	}
 
 	async saveColumnOrder(propertyId: string, order: string[]): Promise<void> {
