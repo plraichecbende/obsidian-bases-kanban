@@ -14,6 +14,7 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 - **Column Order Persistence**: Your column order is saved per property and persists across sessions
 - **Property Selection**: Choose which property determines your columns (e.g., "Status", "Priority", "Category")
 - **Uncategorized Entries**: Notes without a value for the selected property are automatically grouped in an "Uncategorized" column
+- **Property Display**: Selected properties are shown on each card for at-a-glance context
 - **Click to Open**: Click any card to open the corresponding note
 - **Visual Feedback**: Clear visual indicators during drag operations
 - **Responsive Design**: Works well on different screen sizes
