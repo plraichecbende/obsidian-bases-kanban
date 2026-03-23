@@ -99,6 +99,30 @@ npm test
 npm run typecheck
 ```
 
+### Linting and Formatting
+
+This project uses [ESLint](https://eslint.org/) for linting and [Biome](https://biomejs.dev/) for formatting. They are intentionally kept separate.
+
+**Lint** (reports rule violations):
+```bash
+npm run lint
+```
+
+**Lint with auto-fix**:
+```bash
+npm run lint:fix
+```
+
+**Format** (rewrites files):
+```bash
+npm run format
+```
+
+**Check formatting** (exits non-zero if unformatted; used by CI and the pre-commit hook):
+```bash
+npm run format:check
+```
+
 ### Technical notes
 
 - The plugin uses the **`.obk-`** CSS class prefix (Obsidian Bases Kanban) for all view UI classes to avoid collisions with other plugins and themes.

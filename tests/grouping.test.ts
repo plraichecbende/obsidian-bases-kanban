@@ -12,7 +12,7 @@ describe('normalizePropertyValue - Value Objects', () => {
 			isTruthy: () => true,
 		};
 		assert.strictEqual(normalizePropertyValue(mockValue), 'To Do');
-		
+
 		const mockValue2 = {
 			toString: () => 'Done',
 			isTruthy: () => true,
@@ -34,7 +34,7 @@ describe('normalizePropertyValue - Value Objects', () => {
 			isTruthy: () => false,
 		};
 		assert.strictEqual(normalizePropertyValue(mockValue), UNCATEGORIZED_LABEL);
-		
+
 		const mockValue2 = {
 			toString: () => '   ',
 			isTruthy: () => false,
@@ -79,7 +79,7 @@ describe('ensureGroupExists', () => {
 	test('Creates group if it does not exist', () => {
 		const grouped = new Map<string, BasesEntry[]>();
 		const group = ensureGroupExists(grouped, 'test');
-		
+
 		assert.ok(group, 'Group should be created');
 		assert.strictEqual(group.length, 0, 'Group should be empty array');
 		assert.ok(grouped.has('test'), 'Map should have test key');
@@ -90,9 +90,9 @@ describe('ensureGroupExists', () => {
 		const entry = createMockBasesEntry(createMockTFile('test.md'));
 		const existingGroup = [entry];
 		grouped.set('test', existingGroup);
-		
+
 		const group = ensureGroupExists(grouped, 'test');
-		
+
 		assert.strictEqual(group, existingGroup, 'Should return existing group');
 		assert.strictEqual(group.length, 1, 'Group should have one entry');
 	});
@@ -101,9 +101,8 @@ describe('ensureGroupExists', () => {
 		const grouped = new Map<string, BasesEntry[]>();
 		const group1 = ensureGroupExists(grouped, 'group1');
 		const group2 = ensureGroupExists(grouped, 'group2');
-		
+
 		assert.notStrictEqual(group1, group2, 'Groups should be different arrays');
 		assert.strictEqual(grouped.size, 2, 'Map should have two groups');
 	});
 });
-

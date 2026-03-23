@@ -7,10 +7,7 @@ import { UNCATEGORIZED_LABEL } from '../constants.ts';
  * @param key - The key to ensure exists
  * @returns The array for the specified key
  */
-export function ensureGroupExists(
-	grouped: Map<string, BasesEntry[]>,
-	key: string
-): BasesEntry[] {
+export function ensureGroupExists(grouped: Map<string, BasesEntry[]>, key: string): BasesEntry[] {
 	if (!grouped.has(key)) {
 		grouped.set(key, []);
 	}
@@ -34,17 +31,14 @@ export function normalizePropertyValue(value: unknown): string {
 	if (value === null || value === undefined) {
 		return UNCATEGORIZED_LABEL;
 	}
-	
+
 	// Value objects from Obsidian Bases have toString()
 	if (typeof value === 'object' && 'toString' in value && typeof value.toString === 'function') {
 		const stringValue = (value.toString as () => string)().trim();
 		return stringValue === '' ? UNCATEGORIZED_LABEL : stringValue;
 	}
-	
+
 	// Fallback for primitives (shouldn't happen in production, but keeps tests simple)
 	const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
 	return stringValue.trim() === '' ? UNCATEGORIZED_LABEL : stringValue.trim();
 }
-
-
-

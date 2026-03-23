@@ -44,22 +44,10 @@ describe('KanbanView Initialization', () => {
 		setupKanbanViewWithApp(view, app);
 
 		assert.ok(view.containerEl, 'containerEl should be created');
-		assert.strictEqual(
-			view.containerEl.className,
-			'obk-view-container',
-			'containerEl should have correct class'
-		);
+		assert.strictEqual(view.containerEl.className, 'obk-view-container', 'containerEl should have correct class');
 		assert.strictEqual(view.scrollEl, scrollEl, 'scrollEl reference should be stored');
-		assert.strictEqual(
-			(view as any).groupByPropertyId,
-			null,
-			'groupByPropertyId should be null initially'
-		);
-		assert.strictEqual(
-			(view as any).sortableInstances.length,
-			0,
-			'sortableInstances array should be empty'
-		);
+		assert.strictEqual((view as any).groupByPropertyId, null, 'groupByPropertyId should be null initially');
+		assert.strictEqual((view as any).sortableInstances.length, 0, 'sortableInstances array should be empty');
 	});
 
 	test('loadConfig loads group by property from config', () => {
@@ -78,11 +66,7 @@ describe('KanbanView Initialization', () => {
 		// Call loadConfig via onDataUpdated
 		view.onDataUpdated();
 
-		assert.strictEqual(
-			(view as any).groupByPropertyId,
-			testPropertyId,
-			'groupByPropertyId should be set from config'
-		);
+		assert.strictEqual((view as any).groupByPropertyId, testPropertyId, 'groupByPropertyId should be set from config');
 	});
 
 	test('loadConfig handles null/undefined config values', () => {
@@ -97,7 +81,7 @@ describe('KanbanView Initialization', () => {
 		assert.strictEqual(
 			(view as any).groupByPropertyId,
 			null,
-			'groupByPropertyId should remain null when config returns null'
+			'groupByPropertyId should remain null when config returns null',
 		);
 	});
 });
@@ -123,7 +107,7 @@ describe('Data Rendering - Empty States', () => {
 		assert.ok(emptyState, 'Empty state element should exist');
 		assert.ok(
 			emptyState?.textContent?.includes('No entries found'),
-			'Empty state should show "No entries found" message'
+			'Empty state should show "No entries found" message',
 		);
 	});
 
@@ -142,9 +126,8 @@ describe('Data Rendering - Empty States', () => {
 		// The code will try to use the first available property, but since there are none,
 		// it should show the "No properties found" message
 		assert.ok(
-			emptyState?.textContent?.includes('No properties found') || 
-			emptyState?.textContent?.includes('No entries found'),
-			'Empty state should show appropriate message when no properties available'
+			emptyState?.textContent?.includes('No properties found') || emptyState?.textContent?.includes('No entries found'),
+			'Empty state should show appropriate message when no properties available',
 		);
 	});
 });
@@ -174,9 +157,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		assert.ok(columns.length > 0, 'Columns should be created');
 
 		// Verify "To Do" column has 2 entries
-		const toDoColumn = Array.from(columns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('To Do')
-		);
+		const toDoColumn = Array.from(columns).find((col) => col.getAttribute('data-column-value')?.includes('To Do'));
 		assert.ok(toDoColumn, 'To Do column should exist');
 		const toDoCards = toDoColumn?.querySelectorAll('.obk-card');
 		assert.strictEqual(toDoCards?.length, 2, 'To Do column should have 2 cards');
@@ -195,7 +176,7 @@ describe('Data Rendering - Entry Grouping', () => {
 		// Check for Uncategorized column
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const uncategorizedColumn = Array.from(columns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('Uncategorized')
+			col.getAttribute('data-column-value')?.includes('Uncategorized'),
 		);
 		assert.ok(uncategorizedColumn, 'Uncategorized column should exist');
 	});
@@ -212,7 +193,7 @@ describe('Data Rendering - Entry Grouping', () => {
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const uncategorizedColumn = Array.from(columns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('Uncategorized')
+			col.getAttribute('data-column-value')?.includes('Uncategorized'),
 		);
 		assert.ok(uncategorizedColumn, 'Empty string values should map to Uncategorized');
 	});
@@ -242,10 +223,7 @@ describe('Data Rendering - Column Rendering', () => {
 		assert.ok(columns.length > 0, 'Columns should be created');
 
 		const firstColumn = columns[0] as HTMLElement;
-		assert.ok(
-			firstColumn.getAttribute('data-column-value'),
-			'Column should have data-column-value attribute'
-		);
+		assert.ok(firstColumn.getAttribute('data-column-value'), 'Column should have data-column-value attribute');
 
 		const header = firstColumn.querySelector('.obk-column-header');
 		assert.ok(header, 'Column header should exist');
@@ -258,10 +236,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		const body = firstColumn.querySelector('.obk-column-body');
 		assert.ok(body, 'Column body should exist');
-		assert.ok(
-			body?.getAttribute('data-sortable-container'),
-			'Column body should have data-sortable-container attribute'
-		);
+		assert.ok(body?.getAttribute('data-sortable-container'), 'Column body should have data-sortable-container attribute');
 	});
 });
 
@@ -289,10 +264,7 @@ describe('Data Rendering - Card Rendering', () => {
 		assert.ok(cards.length > 0, 'Cards should be created');
 
 		const firstCard = cards[0] as HTMLElement;
-		assert.ok(
-			firstCard.getAttribute('data-entry-path'),
-			'Card should have data-entry-path attribute'
-		);
+		assert.ok(firstCard.getAttribute('data-entry-path'), 'Card should have data-entry-path attribute');
 
 		const title = firstCard.querySelector('.obk-card-title');
 		assert.ok(title, 'Card title should exist');
@@ -320,7 +292,7 @@ describe('Data Rendering - Card Rendering', () => {
 		assert.strictEqual(
 			app.workspace.openLinkText.calls[0][0],
 			entryPath,
-			'openLinkText should be called with entry path'
+			'openLinkText should be called with entry path',
 		);
 	});
 });
@@ -352,15 +324,9 @@ describe('Data Rendering - Board Rendering', () => {
 		assert.ok(columns.length > 0, 'Columns should be created');
 
 		// Verify columns are sorted alphabetically
-		const columnValues = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		const columnValues = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 		const sortedValues = [...columnValues].sort();
-		assert.deepStrictEqual(
-			columnValues,
-			sortedValues,
-			'Columns should be sorted alphabetically'
-		);
+		assert.deepStrictEqual(columnValues, sortedValues, 'Columns should be sorted alphabetically');
 
 		// Verify all entries appear in columns
 		const allCards = view.containerEl.querySelectorAll('.obk-card');
@@ -394,25 +360,21 @@ describe('Drag and Drop - Sortable Initialization', () => {
 		// The view stores instances in sortableInstances array
 		const viewInstances = (view as any).sortableInstances || [];
 		assert.ok(viewInstances.length > 0, 'Sortable instances should be created in view');
-		
+
 		// Verify that initializeSortable was called by checking we have instances
 		// The fact that instances exist means Sortable constructor was called
 		// which means initializeSortable set up drag-and-drop correctly
-		
+
 		// Verify the instance structure
 		const firstInstance = viewInstances[0];
 		assert.ok(firstInstance, 'Sortable instance should exist');
-		
+
 		// Verify that initializeSortable found column bodies to attach to
 		// This is the key functionality - it should find all .obk-column-body elements
 		const columnBodies = view.containerEl.querySelectorAll('.obk-column-body[data-sortable-container]');
 		assert.ok(columnBodies.length > 0, 'Should have column bodies for Sortable');
-		assert.strictEqual(
-			viewInstances.length,
-			columnBodies.length,
-			'Should have one Sortable instance per column body'
-		);
-		
+		assert.strictEqual(viewInstances.length, columnBodies.length, 'Should have one Sortable instance per column body');
+
 		// Verify instances have destroy method (required for cleanup)
 		viewInstances.forEach((instance: any) => {
 			assert.ok(typeof instance.destroy === 'function', 'Sortable instance should have destroy method');
@@ -470,10 +432,10 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		// Find a card in "To Do" column
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const toDoColumn = Array.from(columns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('To Do')
+			col.getAttribute('data-column-value')?.includes('To Do'),
 		) as HTMLElement;
 		const doingColumn = Array.from(columns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('Doing')
+			col.getAttribute('data-column-value')?.includes('Doing'),
 		) as HTMLElement;
 
 		assert.ok(toDoColumn, 'To Do column should exist');
@@ -499,11 +461,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		await (view as any).handleCardDrop(mockEvent);
 
 		// Verify processFrontMatter was called
-		assert.strictEqual(
-			app.fileManager.processFrontMatter.calls.length,
-			1,
-			'processFrontMatter should be called'
-		);
+		assert.strictEqual(app.fileManager.processFrontMatter.calls.length, 1, 'processFrontMatter should be called');
 	});
 
 	test('Skip update if dropped in same column', async () => {
@@ -518,7 +476,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const toDoColumn = Array.from(columns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('To Do')
+			col.getAttribute('data-column-value')?.includes('To Do'),
 		) as HTMLElement;
 
 		const card = toDoColumn.querySelector('.obk-card') as HTMLElement;
@@ -540,7 +498,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		assert.strictEqual(
 			app.fileManager.processFrontMatter.calls.length,
 			0,
-			'processFrontMatter should not be called for same column drop'
+			'processFrontMatter should not be called for same column drop',
 		);
 	});
 
@@ -556,10 +514,10 @@ describe('Drag and Drop - Card Drop Handling', () => {
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const toDoColumn = Array.from(columns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('To Do')
+			col.getAttribute('data-column-value')?.includes('To Do'),
 		) as HTMLElement;
 		const uncategorizedColumn = Array.from(columns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('Uncategorized')
+			col.getAttribute('data-column-value')?.includes('Uncategorized'),
 		) as HTMLElement;
 
 		if (!uncategorizedColumn) {
@@ -575,7 +533,9 @@ describe('Drag and Drop - Card Drop Handling', () => {
 
 		const card = toDoColumn.querySelector('.obk-card') as HTMLElement;
 		const toDoBody = toDoColumn.querySelector('.obk-column-body') as HTMLElement;
-		const uncatBody = (uncategorizedColumn || view.containerEl.querySelector('[data-column-value="Uncategorized"]'))?.querySelector('.obk-column-body') as HTMLElement;
+		const uncatBody = (
+			uncategorizedColumn || view.containerEl.querySelector('[data-column-value="Uncategorized"]')
+		)?.querySelector('.obk-column-body') as HTMLElement;
 
 		const mockEvent = {
 			item: card,
@@ -588,11 +548,7 @@ describe('Drag and Drop - Card Drop Handling', () => {
 		await (view as any).handleCardDrop(mockEvent);
 
 		// Verify processFrontMatter was called with empty string logic
-		assert.strictEqual(
-			app.fileManager.processFrontMatter.calls.length,
-			1,
-			'processFrontMatter should be called'
-		);
+		assert.strictEqual(app.fileManager.processFrontMatter.calls.length, 1, 'processFrontMatter should be called');
 	});
 });
 
@@ -632,11 +588,7 @@ describe('Drag and Drop - Drop Error Handling', () => {
 		await (view as any).handleCardDrop(mockEvent);
 
 		// Should not call processFrontMatter
-		assert.strictEqual(
-			app.fileManager.processFrontMatter.calls.length,
-			0,
-			'processFrontMatter should not be called'
-		);
+		assert.strictEqual(app.fileManager.processFrontMatter.calls.length, 0, 'processFrontMatter should not be called');
 	});
 
 	test('Handle missing column elements', async () => {
@@ -663,11 +615,7 @@ describe('Drag and Drop - Drop Error Handling', () => {
 
 		await (view as any).handleCardDrop(mockEvent);
 
-		assert.strictEqual(
-			app.fileManager.processFrontMatter.calls.length,
-			0,
-			'processFrontMatter should not be called'
-		);
+		assert.strictEqual(app.fileManager.processFrontMatter.calls.length, 0, 'processFrontMatter should not be called');
 	});
 });
 
@@ -689,19 +637,19 @@ describe('Data Updates', () => {
 
 		const view = new KanbanView(controller, scrollEl, createMockPlugin());
 		setupKanbanViewWithApp(view, app);
-		
+
 		let loadConfigCalled = false;
 		let renderCalled = false;
-		
+
 		const originalLoadConfig = (view as any).loadConfig.bind(view);
 		const originalRender = (view as any).render.bind(view);
-		
-		(view as any).loadConfig = function() {
+
+		(view as any).loadConfig = function () {
 			loadConfigCalled = true;
 			return originalLoadConfig();
 		};
-		
-		(view as any).render = function() {
+
+		(view as any).render = function () {
 			renderCalled = true;
 			return originalRender();
 		};
@@ -746,7 +694,7 @@ describe('Cleanup', () => {
 		// Verify instances were destroyed - check view's internal array
 		const viewInstancesAfter = (view as any).sortableInstances || [];
 		assert.strictEqual(viewInstancesAfter.length, 0, 'All instances should be cleaned up');
-		
+
 		// Also verify they were destroyed if we can access them
 		viewInstancesBefore.forEach((instance: any) => {
 			if (instance && typeof instance.destroyed !== 'undefined') {
@@ -755,11 +703,7 @@ describe('Cleanup', () => {
 		});
 
 		// Verify array is cleared
-		assert.strictEqual(
-			(view as any).sortableInstances.length,
-			0,
-			'sortableInstances array should be cleared'
-		);
+		assert.strictEqual((view as any).sortableInstances.length, 0, 'sortableInstances array should be cleared');
 	});
 });
 
@@ -789,7 +733,7 @@ describe('Column Reordering - Drag Handle', () => {
 		columns.forEach((column) => {
 			const header = column.querySelector('.obk-column-header');
 			assert.ok(header, 'Column header should exist');
-			
+
 			const dragHandle = header?.querySelector('.obk-column-drag-handle');
 			assert.ok(dragHandle, 'Drag handle should exist in column header');
 		});
@@ -807,10 +751,7 @@ describe('Column Reordering - Drag Handle', () => {
 
 		const dragHandle = view.containerEl.querySelector('.obk-column-drag-handle');
 		assert.ok(dragHandle, 'Drag handle should exist');
-		assert.ok(
-			dragHandle?.classList.contains('obk-column-drag-handle'),
-			'Drag handle should have correct CSS class'
-		);
+		assert.ok(dragHandle?.classList.contains('obk-column-drag-handle'), 'Drag handle should have correct CSS class');
 	});
 });
 
@@ -854,13 +795,13 @@ describe('Column Reordering - Sortable Initialization', () => {
 
 		const columnSortable = (view as any).columnSortable;
 		assert.ok(columnSortable, 'Column Sortable should exist');
-		
+
 		// Check the columnSortable instance directly
 		assert.ok(columnSortable.options, 'Column Sortable should have options');
 		assert.strictEqual(
 			columnSortable.options.handle,
 			'.obk-column-drag-handle',
-			'Column Sortable should use drag handle selector'
+			'Column Sortable should use drag handle selector',
 		);
 	});
 
@@ -876,7 +817,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 
 		const columnSortable = (view as any).columnSortable;
 		assert.ok(columnSortable, 'Column Sortable should exist');
-		
+
 		// Verify it's a Sortable instance (has destroy method)
 		assert.ok(typeof columnSortable.destroy === 'function', 'Column Sortable should have destroy method');
 
@@ -884,7 +825,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 
 		// After cleanup, columnSortable should be null
 		assert.strictEqual((view as any).columnSortable, null, 'Column Sortable should be null after cleanup');
-		
+
 		// Verify destroy was called if the mock tracks it
 		if (columnSortable && typeof columnSortable.destroyed !== 'undefined') {
 			assert.strictEqual(columnSortable.destroyed, true, 'Column Sortable should be destroyed');
@@ -924,7 +865,7 @@ describe('Column Reordering - Order Persistence', () => {
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		const boardEl = view.containerEl.querySelector('.obk-board') as HTMLElement;
-		
+
 		// Simulate column reorder: move first column to end
 		const firstColumn = columns[0] as HTMLElement;
 		const lastColumn = columns[columns.length - 1] as HTMLElement;
@@ -960,19 +901,11 @@ describe('Column Reordering - Order Persistence', () => {
 		view.onDataUpdated();
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
-		const renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 
 		// Should match saved order (filtered to only include existing values)
-		const expectedOrder = savedOrder.filter(v => 
-			['Done', 'Doing', 'To Do'].includes(v)
-		);
-		assert.deepStrictEqual(
-			renderedOrder,
-			expectedOrder,
-			'Columns should be rendered in saved order'
-		);
+		const expectedOrder = savedOrder.filter((v) => ['Done', 'Doing', 'To Do'].includes(v));
+		assert.deepStrictEqual(renderedOrder, expectedOrder, 'Columns should be rendered in saved order');
 	});
 
 	test('New columns appear at end of existing columns', () => {
@@ -990,9 +923,7 @@ describe('Column Reordering - Order Persistence', () => {
 		view.onDataUpdated();
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
-		const renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 
 		// Should have saved columns first, then new ones
 		assert.strictEqual(renderedOrder[0], 'Done', 'First column should be from saved order');
@@ -1007,7 +938,7 @@ describe('Column Reordering - Order Persistence', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
-		
+
 		// Set initial property and order
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
 		const savedOrder = ['Done', 'Doing', 'To Do'];
@@ -1019,9 +950,7 @@ describe('Column Reordering - Order Persistence', () => {
 
 		// Verify initial order
 		let columns = view.containerEl.querySelectorAll('.obk-column');
-		let renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		let renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 		assert.deepStrictEqual(renderedOrder, savedOrder, 'Initial order should match saved order');
 
 		// Switch to different property
@@ -1034,14 +963,8 @@ describe('Column Reordering - Order Persistence', () => {
 
 		// Verify order is preserved
 		columns = view.containerEl.querySelectorAll('.obk-column');
-		renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
-		assert.deepStrictEqual(
-			renderedOrder,
-			savedOrder,
-			'Order should be preserved after property toggle'
-		);
+		renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
+		assert.deepStrictEqual(renderedOrder, savedOrder, 'Order should be preserved after property toggle');
 	});
 
 	test('Multiple properties have independent orders', () => {
@@ -1060,9 +983,7 @@ describe('Column Reordering - Order Persistence', () => {
 		view1.onDataUpdated();
 
 		let columns = view1.containerEl.querySelectorAll('.obk-column');
-		let order1 = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		let order1 = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 		assert.strictEqual(order1[0], 'Done', 'Status order should be respected');
 
 		// Test priority property
@@ -1072,9 +993,7 @@ describe('Column Reordering - Order Persistence', () => {
 		view2.onDataUpdated();
 
 		columns = view2.containerEl.querySelectorAll('.obk-column');
-		const order2 = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		const order2 = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 		assert.strictEqual(order2[0], 'Low', 'Priority order should be independent');
 		assert.notDeepStrictEqual(order1, order2, 'Orders should be different');
 	});
@@ -1093,17 +1012,11 @@ describe('Column Reordering - Order Persistence', () => {
 		view.onDataUpdated();
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
-		const renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 
 		// Should be alphabetical
 		const expectedOrder = [...renderedOrder].sort();
-		assert.deepStrictEqual(
-			renderedOrder,
-			expectedOrder,
-			'Columns should be alphabetical when no saved order'
-		);
+		assert.deepStrictEqual(renderedOrder, expectedOrder, 'Columns should be alphabetical when no saved order');
 	});
 
 	test('Handle null/undefined saved order gracefully', () => {
@@ -1121,19 +1034,12 @@ describe('Column Reordering - Order Persistence', () => {
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should still be rendered');
-		
-		const renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+
+		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 		const expectedOrder = [...renderedOrder].sort();
-		assert.deepStrictEqual(
-			renderedOrder,
-			expectedOrder,
-			'Should fallback to alphabetical when order is null'
-		);
+		assert.deepStrictEqual(renderedOrder, expectedOrder, 'Should fallback to alphabetical when order is null');
 	});
 });
-
 
 describe('Column Order Normalization', () => {
 	let scrollEl: HTMLElement;
@@ -1170,15 +1076,13 @@ describe('Column Order Normalization', () => {
 		view.onDataUpdated();
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
-		const renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 
 		// Should render correctly with saved order
 		assert.ok(renderedOrder.includes('Done'), 'Done should be in rendered order');
 		assert.ok(renderedOrder.includes('Doing'), 'Doing should be in rendered order');
 		assert.ok(renderedOrder.includes('To Do'), 'To Do should be in rendered order');
-		
+
 		// Order should match saved order (Done, Doing, To Do)
 		assert.strictEqual(renderedOrder[0], 'Done', 'First column should be Done (from saved order)');
 		assert.strictEqual(renderedOrder[1], 'Doing', 'Second column should be Doing (from saved order)');
@@ -1199,9 +1103,7 @@ describe('Column Order Normalization', () => {
 		view.onDataUpdated();
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
-		const renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 
 		// Should render in saved order
 		assert.strictEqual(renderedOrder[0], 'Done', 'First should be Done (from saved order)');
@@ -1224,15 +1126,13 @@ describe('Column Order Normalization', () => {
 		view.onDataUpdated();
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
-		const renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
 
 		// Should have Done first (from saved order), then new columns
 		assert.strictEqual(renderedOrder[0], 'Done', 'First should be Done (from saved order)');
 		assert.ok(renderedOrder.includes('To Do'), 'To Do should be included');
 		assert.ok(renderedOrder.includes('Doing'), 'Doing should be included');
-		
+
 		// New columns should appear after saved ones
 		const toDoIndex = renderedOrder.indexOf('To Do');
 		const doingIndex = renderedOrder.indexOf('Doing');
@@ -1264,11 +1164,9 @@ describe('Column Order Normalization', () => {
 
 		const columns = view.containerEl.querySelectorAll('.obk-column');
 		assert.ok(columns.length > 0, 'Columns should be rendered');
-		
-		const renderedOrder = Array.from(columns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
-		
+
+		const renderedOrder = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
+
 		// All values should be normalized correctly
 		assert.ok(renderedOrder.includes('Done'), 'Done should be present');
 		assert.ok(renderedOrder.includes('Doing'), 'Doing should be present');
@@ -1331,12 +1229,12 @@ describe('Data Rendering - Card Properties', () => {
 		assert.strictEqual(
 			propertyEls[0].querySelector('.obk-card-property-label')?.textContent,
 			PROPERTY_PRIORITY,
-			'Label should show property id'
+			'Label should show property id',
 		);
 		assert.strictEqual(
 			propertyEls[0].querySelector('.obk-card-property-value')?.textContent,
 			'High',
-			'Value should show property value'
+			'Value should show property value',
 		);
 	});
 
@@ -1353,9 +1251,7 @@ describe('Data Rendering - Card Properties', () => {
 		view.onDataUpdated();
 
 		const card = view.containerEl.querySelector('.obk-card') as HTMLElement;
-		const propertyLabels = Array.from(card.querySelectorAll('.obk-card-property-label')).map(
-			(el) => el.textContent
-		);
+		const propertyLabels = Array.from(card.querySelectorAll('.obk-card-property-label')).map((el) => el.textContent);
 		assert.ok(!propertyLabels.includes(PROPERTY_STATUS), 'Group-by property should not appear as a card property');
 	});
 
@@ -1398,4 +1294,3 @@ describe('Data Rendering - Card Properties', () => {
 		assert.strictEqual(propertyEls.length, 0, 'No property elements should be rendered when getOrder is empty');
 	});
 });
-

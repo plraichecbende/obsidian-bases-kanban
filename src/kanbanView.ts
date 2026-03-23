@@ -16,7 +16,6 @@ interface KanbanPlugin {
 	saveColumnOrder(propertyId: BasesPropertyId, order: string[]): Promise<void>;
 }
 
-
 export class KanbanView extends BasesView {
 	type = 'kanban-view';
 
@@ -58,14 +57,14 @@ export class KanbanView extends BasesView {
 			if (!entries || entries.length === 0) {
 				this.containerEl.createDiv({
 					text: EMPTY_STATE_MESSAGES.NO_ENTRIES,
-					cls: CSS_CLASSES.EMPTY_STATE
+					cls: CSS_CLASSES.EMPTY_STATE,
 				});
 				return;
 			}
 
 			// Get available properties from entries
 			const availablePropertyIds = this.allProperties || [];
-			
+
 			// Validate group by property
 			if (!this.groupByPropertyId || !availablePropertyIds.includes(this.groupByPropertyId)) {
 				if (availablePropertyIds.length > 0) {
@@ -73,7 +72,7 @@ export class KanbanView extends BasesView {
 				} else {
 					this.containerEl.createDiv({
 						text: EMPTY_STATE_MESSAGES.NO_PROPERTIES,
-						cls: CSS_CLASSES.EMPTY_STATE
+						cls: CSS_CLASSES.EMPTY_STATE,
 					});
 					return;
 				}
@@ -88,7 +87,7 @@ export class KanbanView extends BasesView {
 			// Create columns for each unique property value
 			const propertyValues = Array.from(groupedEntries.keys());
 			const orderedValues = this.getOrderedColumnValues(propertyValues);
-			
+
 			orderedValues.forEach((value) => {
 				const columnEl = this.createColumn(value, groupedEntries.get(value) || []);
 				boardEl.appendChild(columnEl);
@@ -129,11 +128,11 @@ export class KanbanView extends BasesView {
 
 		// Column header
 		const headerEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_HEADER });
-		
+
 		// Add drag handle
 		const dragHandle = headerEl.createDiv({ cls: CSS_CLASSES.COLUMN_DRAG_HANDLE });
 		dragHandle.textContent = '⋮⋮';
-		
+
 		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
 		headerEl.createSpan({ text: `(${entries.length})`, cls: CSS_CLASSES.COLUMN_COUNT });
 
@@ -227,7 +226,7 @@ export class KanbanView extends BasesView {
 
 		const cardEl = evt.item;
 		const entryPath = cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
-		
+
 		if (!entryPath) {
 			console.warn('No entry path found on card');
 			return;
@@ -237,7 +236,7 @@ export class KanbanView extends BasesView {
 		const columnSelector = `.${CSS_CLASSES.COLUMN}`;
 		const oldColumnEl = evt.from.closest(columnSelector);
 		const newColumnEl = evt.to.closest(columnSelector);
-		
+
 		if (!newColumnEl) {
 			console.warn('Could not find new column element');
 			return;
@@ -248,11 +247,10 @@ export class KanbanView extends BasesView {
 			return;
 		}
 
-		const oldColumnValue = oldColumnEl instanceof HTMLElement
-			? oldColumnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE)
-			: null;
+		const oldColumnValue =
+			oldColumnEl instanceof HTMLElement ? oldColumnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) : null;
 		const newColumnValue = newColumnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
-		
+
 		if (!newColumnValue) {
 			console.warn('No column value found');
 			return;
@@ -293,11 +291,11 @@ export class KanbanView extends BasesView {
 		// For "Uncategorized", we'll set it to empty string or null
 		try {
 			const valueToSet = newColumnValue === UNCATEGORIZED_LABEL ? '' : newColumnValue;
-			
+
 			// Extract property name from property ID (e.g., "note.status" -> "status")
 			const parsedProperty = parsePropertyId(this.groupByPropertyId);
 			const propertyName = parsedProperty.name;
-			
+
 			await this.app.fileManager.processFrontMatter(entry.file, (frontmatter: Record<string, unknown>) => {
 				if (valueToSet === '') {
 					// Remove the property if setting to empty
@@ -306,7 +304,7 @@ export class KanbanView extends BasesView {
 					frontmatter[propertyName] = valueToSet;
 				}
 			});
-			
+
 			// The view will automatically update via onDataUpdated when the file changes
 		} catch (error) {
 			console.error('Error updating entry property:', error);
@@ -317,23 +315,23 @@ export class KanbanView extends BasesView {
 
 	private getOrderedColumnValues(values: string[]): string[] {
 		if (!this.groupByPropertyId) return values.sort();
-		
+
 		const savedOrder = this.plugin.getColumnOrder(this.groupByPropertyId);
 		if (!savedOrder) return values.sort();
-		
+
 		// Saved order is already normalized strings, use directly
-		const newValues = values.filter(v => !savedOrder.includes(v));
-		return [...savedOrder.filter(v => values.includes(v)), ...newValues];
+		const newValues = values.filter((v) => !savedOrder.includes(v));
+		return [...savedOrder.filter((v) => values.includes(v)), ...newValues];
 	}
 
 	private initializeColumnSortable(): void {
 		if (this.columnSortable) {
 			this.columnSortable.destroy();
 		}
-		
+
 		const boardEl = this.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
 		if (!boardEl || !(boardEl instanceof HTMLElement)) return;
-		
+
 		this.columnSortable = new Sortable(boardEl, {
 			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
 			handle: `.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`,
@@ -348,13 +346,13 @@ export class KanbanView extends BasesView {
 
 	private async handleColumnDrop(evt: Sortable.SortableEvent): Promise<void> {
 		if (!this.groupByPropertyId) return;
-		
+
 		// Extract current column order from DOM
 		const columns = this.containerEl.querySelectorAll(`.${CSS_CLASSES.COLUMN}`);
-		const order = Array.from(columns).map(col => 
-			col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE)
-		).filter((v): v is string => v !== null);
-		
+		const order = Array.from(columns)
+			.map((col) => col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE))
+			.filter((v): v is string => v !== null);
+
 		await this.plugin.saveColumnOrder(this.groupByPropertyId, order);
 	}
 
@@ -364,13 +362,13 @@ export class KanbanView extends BasesView {
 			instance.destroy();
 		});
 		this.sortableInstances = [];
-		
+
 		// Clean up column Sortable instance
 		if (this.columnSortable) {
 			this.columnSortable.destroy();
 			this.columnSortable = null;
 		}
-		
+
 		// Note: DOM event listeners attached to elements within containerEl
 		// are automatically cleaned up when containerEl is cleared (via empty()).
 		// No manual cleanup needed for listeners on child elements.

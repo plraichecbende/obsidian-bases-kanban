@@ -12,7 +12,7 @@ export default class KanbanBasesViewPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-		
+
 		// Register the custom Bases view
 		this.registerBasesView(KANBAN_VIEW_TYPE, {
 			name: 'Kanban',
@@ -25,7 +25,7 @@ export default class KanbanBasesViewPlugin extends Plugin {
 	}
 
 	private async loadSettings(): Promise<void> {
-		this.columnOrders = Object.assign({}, (await this.loadData() as ColumnOrderSettings | null) || {});
+		this.columnOrders = Object.assign({}, ((await this.loadData()) as ColumnOrderSettings | null) || {});
 	}
 
 	async saveColumnOrder(propertyId: string, order: string[]): Promise<void> {
@@ -41,4 +41,3 @@ export default class KanbanBasesViewPlugin extends Plugin {
 		// Cleanup if needed
 	}
 }
-

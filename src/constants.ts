@@ -21,12 +21,12 @@ export const CSS_CLASSES = {
 	// Container
 	VIEW_CONTAINER: 'obk-view-container',
 	BOARD: 'obk-board',
-	
+
 	// Property selector (for future or framework-driven UI)
 	PROPERTY_SELECTOR: 'obk-property-selector',
 	PROPERTY_LABEL: 'obk-property-label',
 	PROPERTY_SELECT: 'obk-property-select',
-	
+
 	// Column
 	COLUMN: 'obk-column',
 	COLUMN_HEADER: 'obk-column-header',
@@ -36,7 +36,7 @@ export const CSS_CLASSES = {
 	COLUMN_DRAG_HANDLE: 'obk-column-drag-handle',
 	COLUMN_DRAGGING: 'obk-column-dragging',
 	COLUMN_GHOST: 'obk-column-ghost',
-	
+
 	// Card
 	CARD: 'obk-card',
 	CARD_TITLE: 'obk-card-title',
@@ -47,10 +47,10 @@ export const CSS_CLASSES = {
 	CARD_PROPERTY: 'obk-card-property',
 	CARD_PROPERTY_LABEL: 'obk-card-property-label',
 	CARD_PROPERTY_VALUE: 'obk-card-property-value',
-	
+
 	// Empty state
 	EMPTY_STATE: 'obk-empty-state',
-	
+
 	// Sortable placeholder (fallback / shared ghost style)
 	SORTABLE_GHOST: 'obk-sortable-ghost',
 } as const;
@@ -65,4 +65,3 @@ export const EMPTY_STATE_MESSAGES = {
 	NO_ENTRIES: 'No entries found. Add some notes to your base.',
 	NO_PROPERTIES: 'No properties found in entries.',
 } as const;
-

@@ -41,12 +41,18 @@ npm run dev
 npm run build
 ```
 
-## Linting
+## Linting and formatting
 
-- To use eslint install eslint from terminal: `npm install -g eslint`
-- To use eslint to analyze this project use this command: `eslint main.ts`
-- eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder: `eslint ./src/`
+ESLint handles linting; [Biome](https://biomejs.dev/) handles formatting. They are intentionally kept separate. Both are devDependencies — no global installs needed.
+
+| Script | Purpose |
+|---|---|
+| `npm run lint` | Report ESLint rule violations |
+| `npm run lint:fix` | Auto-fix ESLint violations |
+| `npm run format` | Rewrite files with Biome |
+| `npm run format:check` | Exit non-zero if any file is unformatted (used by CI and pre-commit hook) |
+
+A pre-commit hook (`.githooks/pre-commit`) runs `format:check` then `lint` automatically after `npm install` via the `prepare` script.
 
 ## File & folder conventions
 

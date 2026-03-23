@@ -25,7 +25,10 @@ jobs:
       
       - name: Lint
         run: npm run lint
-      
+
+      - name: Check formatting
+        run: npm run format:check
+
       - name: Verify versions are in sync
         run: |
           MANIFEST_VERSION=$(node -p "require('./manifest.json').version")

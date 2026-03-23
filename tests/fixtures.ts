@@ -46,9 +46,7 @@ export function createEntriesWithEmptyValues(): BasesEntry[] {
 
 // Single entry
 export function createSingleEntry(): BasesEntry[] {
-	return [
-		createMockBasesEntry(createMockTFile('Single Task.md'), { [PROPERTY_STATUS]: 'To Do' }),
-	];
+	return [createMockBasesEntry(createMockTFile('Single Task.md'), { [PROPERTY_STATUS]: 'To Do' })];
 }
 
 // Empty entries array
@@ -75,9 +73,4 @@ export function createEntriesWithNumericValues(): BasesEntry[] {
 }
 
 // Property IDs for testing
-export const TEST_PROPERTIES: BasesPropertyId[] = [
-	PROPERTY_STATUS,
-	PROPERTY_PRIORITY,
-	PROPERTY_CATEGORY,
-];
-
+export const TEST_PROPERTIES: BasesPropertyId[] = [PROPERTY_STATUS, PROPERTY_PRIORITY, PROPERTY_CATEGORY];

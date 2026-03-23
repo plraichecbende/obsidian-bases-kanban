@@ -19,7 +19,7 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
 const HTMLElementProto = dom.window.HTMLElement.prototype as any;
 
 if (!HTMLElementProto.createDiv) {
-	HTMLElementProto.createDiv = function(options?: { cls?: string; text?: string }): HTMLElement {
+	HTMLElementProto.createDiv = function (options?: { cls?: string; text?: string }): HTMLElement {
 		const child = document.createElement('div');
 		if (options?.cls) {
 			child.className = options.cls;
@@ -33,7 +33,7 @@ if (!HTMLElementProto.createDiv) {
 }
 
 if (!HTMLElementProto.createSpan) {
-	HTMLElementProto.createSpan = function(options?: { text?: string; cls?: string }): HTMLElement {
+	HTMLElementProto.createSpan = function (options?: { text?: string; cls?: string }): HTMLElement {
 		const span = document.createElement('span');
 		if (options?.text) {
 			span.textContent = options.text;
@@ -47,7 +47,7 @@ if (!HTMLElementProto.createSpan) {
 }
 
 if (!HTMLElementProto.createEl) {
-	HTMLElementProto.createEl = function(tag: string, options?: { cls?: string; text?: string }): HTMLElement {
+	HTMLElementProto.createEl = function (tag: string, options?: { cls?: string; text?: string }): HTMLElement {
 		const el = document.createElement(tag);
 		if (options?.cls) {
 			el.className = options.cls;
@@ -61,7 +61,7 @@ if (!HTMLElementProto.createEl) {
 }
 
 if (!HTMLElementProto.empty) {
-	HTMLElementProto.empty = function(): void {
+	HTMLElementProto.empty = function (): void {
 		while (this.firstChild) {
 			this.removeChild(this.firstChild);
 		}
@@ -73,7 +73,13 @@ export function createMockTFile(path: string, basename?: string): TFile {
 	return {
 		path,
 		name: path.split('/').pop() || path,
-		basename: basename || path.split('/').pop()?.replace(/\.[^/.]+$/, '') || path,
+		basename:
+			basename ||
+			path
+				.split('/')
+				.pop()
+				?.replace(/\.[^/.]+$/, '') ||
+			path,
 		extension: path.split('.').pop() || '',
 		stat: {
 			size: 100,
@@ -86,16 +92,13 @@ export function createMockTFile(path: string, basename?: string): TFile {
 }
 
 // Mock BasesEntry
-export function createMockBasesEntry(
-	file: TFile,
-	properties: Record<string, any> = {}
-): BasesEntry {
+export function createMockBasesEntry(file: TFile, properties: Record<string, any> = {}): BasesEntry {
 	const entry = {
 		file,
 		getValue: (propertyId: BasesPropertyId) => {
 			const value = properties[propertyId] ?? null;
 			if (value === null) return null;
-			
+
 			// Return a mock Value object to match Obsidian Bases API
 			// We only use toString() in our code, but include other required methods for type compatibility
 			return {
@@ -117,7 +120,7 @@ export function createMockBasesEntry(
 // Mock QueryController
 export function createMockQueryController(
 	entries: BasesEntry[] = [],
-	properties: BasesPropertyId[] = []
+	properties: BasesPropertyId[] = [],
 ): QueryController {
 	const controller = {
 		data: {
@@ -145,7 +148,7 @@ export interface MockFn {
 // Create a mock function
 export function createMockFn(): MockFn {
 	const calls: any[][] = [];
-	const fn = function(...args: any[]) {
+	const fn = function (...args: any[]) {
 		calls.push(args);
 		return Promise.resolve();
 	} as MockFn;
@@ -157,7 +160,7 @@ export function createMockFn(): MockFn {
 }
 
 // Mock App
-export function createMockApp(): App & { 
+export function createMockApp(): App & {
 	workspace: { openLinkText: MockFn };
 	fileManager: { processFrontMatter: MockFn };
 } {
@@ -193,7 +196,7 @@ export class MockSortable {
 // Mock Sortable module
 export function mockSortable() {
 	const instances: MockSortable[] = [];
-	
+
 	const SortableConstructor = (element: HTMLElement, options: any) => {
 		const instance = new MockSortable(element, options);
 		instances.push(instance);
@@ -237,7 +240,7 @@ export function createMockSortableEvent(
 	from: HTMLElement,
 	to: HTMLElement,
 	oldIndex: number = 0,
-	newIndex: number = 0
+	newIndex: number = 0,
 ): any {
 	return {
 		item,
@@ -251,7 +254,7 @@ export function createMockSortableEvent(
 // Helper to find closest element
 export function addClosestPolyfill(element: HTMLElement): void {
 	if (!element.closest) {
-		element.closest = function(selector: string): HTMLElement | null {
+		element.closest = function (selector: string): HTMLElement | null {
 			let el: HTMLElement | null = this;
 			while (el) {
 				if (el.matches && el.matches(selector)) {
@@ -288,11 +291,9 @@ export function createKanbanViewWithApp(
 	controller: QueryController,
 	scrollEl: HTMLElement,
 	app: App,
-	plugin?: any
+	plugin?: any,
 ): any {
 	const view = new KanbanView(controller, scrollEl, plugin ?? createMockPlugin());
 	setupKanbanViewWithApp(view, app);
 	return view;
 }
-
-

@@ -20,7 +20,7 @@ class MockSortable {
 		this.options = options;
 		this.destroyed = false;
 		mockInstances.push(this);
-		
+
 		// Call the original mock if provided
 		if (MockSortableConstructor) {
 			const instance = MockSortableConstructor(element, options);
@@ -28,7 +28,7 @@ class MockSortable {
 			Object.assign(this, instance);
 		}
 	}
-	
+
 	destroy() {
 		this.destroyed = true;
 	}
@@ -44,4 +44,3 @@ module.exports.default = MockSortable;
 module.exports.setMockSortable = setMockSortable;
 module.exports.getMockInstances = getMockInstances;
 module.exports.resetMockInstances = resetMockInstances;
-

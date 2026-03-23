@@ -7,10 +7,5 @@
 			"sortablejs": ["./tests/mocks/sortablejs.js"]
 		}
 	},
-	"include": [
-		"tests/**/*.ts",
-		"src/**/*.ts",
-		"main.ts"
-	]
+	"include": ["tests/**/*.ts", "src/**/*.ts", "main.ts"]
 }
-

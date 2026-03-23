@@ -1,29 +1,25 @@
-import tsparser from "@typescript-eslint/parser";
-import { defineConfig } from "eslint/config";
-import obsidianmd from "eslint-plugin-obsidianmd";
+import tsparser from '@typescript-eslint/parser';
+import { defineConfig } from 'eslint/config';
+import obsidianmd from 'eslint-plugin-obsidianmd';
 
 export default defineConfig([
 	...obsidianmd.configs.recommended,
 
 	{
-		files: ["**/*.ts"],
+		files: ['**/*.ts'],
 		languageOptions: {
 			parser: tsparser,
 			parserOptions: {
-				project: "./tsconfig.json",
+				project: './tsconfig.json',
 			},
 			globals: {
-				console: "readonly",
-				document: "readonly",
+				console: 'readonly',
+				document: 'readonly',
 			},
-		}
+		},
 	},
 
 	{
-		ignores: [
-			"dist/**",
-			"node_modules/**",
-			"tests/**",
-		],
+		ignores: ['dist/**', 'node_modules/**', 'tests/**'],
 	},
 ]);

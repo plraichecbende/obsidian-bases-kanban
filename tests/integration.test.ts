@@ -56,16 +56,14 @@ describe('Integration Tests - Full Workflow', () => {
 		assert.ok(columns.length >= 2, 'Should have multiple columns');
 
 		// Verify entries are in correct columns
-		const toDoColumn = Array.from(columns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('To Do')
-		);
+		const toDoColumn = Array.from(columns).find((col) => col.getAttribute('data-column-value')?.includes('To Do'));
 		assert.ok(toDoColumn, 'To Do column should exist');
 		const toDoCards = toDoColumn?.querySelectorAll('.obk-card');
 		assert.strictEqual(toDoCards?.length, 2, 'To Do should have 2 cards');
 
 		// Simulate drag-and-drop operation
 		const doingColumn = Array.from(columns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('Doing')
+			col.getAttribute('data-column-value')?.includes('Doing'),
 		) as HTMLElement;
 		assert.ok(doingColumn, 'Doing column should exist');
 
@@ -86,16 +84,12 @@ describe('Integration Tests - Full Workflow', () => {
 		await (view as any).handleCardDrop(mockEvent);
 
 		// Verify property is updated
-		assert.strictEqual(
-			app.fileManager.processFrontMatter.calls.length,
-			1,
-			'processFrontMatter should be called'
-		);
+		assert.strictEqual(app.fileManager.processFrontMatter.calls.length, 1, 'processFrontMatter should be called');
 
 		// Verify the call arguments
 		const callArgs = app.fileManager.processFrontMatter.calls[0];
 		assert.ok(callArgs, 'processFrontMatter should have been called');
-		
+
 		// The first argument should be the file
 		const fileArg = callArgs[0];
 		assert.ok(fileArg, 'File should be passed to processFrontMatter');
@@ -113,9 +107,7 @@ describe('Integration Tests - Full Workflow', () => {
 
 		// Get initial state
 		const initialColumns = view.containerEl.querySelectorAll('.obk-column');
-		const toDoColumn = Array.from(initialColumns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('To Do')
-		);
+		const toDoColumn = Array.from(initialColumns).find((col) => col.getAttribute('data-column-value')?.includes('To Do'));
 		const initialToDoCount = toDoColumn?.querySelectorAll('.obk-card').length || 0;
 
 		// Simulate property update by modifying entry data
@@ -135,16 +127,12 @@ describe('Integration Tests - Full Workflow', () => {
 		// Verify view re-rendered
 		const updatedColumns = view.containerEl.querySelectorAll('.obk-column');
 		const updatedToDoColumn = Array.from(updatedColumns).find((col) =>
-			col.getAttribute('data-column-value')?.includes('To Do')
+			col.getAttribute('data-column-value')?.includes('To Do'),
 		);
 		const updatedToDoCount = updatedToDoColumn?.querySelectorAll('.obk-card').length || 0;
 
 		// To Do should have one less card
-		assert.strictEqual(
-			updatedToDoCount,
-			initialToDoCount - 1,
-			'To Do column should have one less card after update'
-		);
+		assert.strictEqual(updatedToDoCount, initialToDoCount - 1, 'To Do column should have one less card after update');
 	});
 });
 
@@ -173,18 +161,16 @@ describe('Integration Tests - Property Selection', () => {
 		view.onDataUpdated();
 
 		const statusColumns = view.containerEl.querySelectorAll('.obk-column');
-		const statusColumnValues = Array.from(statusColumns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
-		
+		const statusColumnValues = Array.from(statusColumns).map((col) => col.getAttribute('data-column-value'));
+
 		// Verify STATUS-based columns exist
 		assert.ok(
 			statusColumnValues.some((val) => val?.includes('To Do')),
-			'Should have To Do column based on STATUS'
+			'Should have To Do column based on STATUS',
 		);
 		assert.ok(
 			statusColumnValues.some((val) => val?.includes('Doing')),
-			'Should have Doing column based on STATUS'
+			'Should have Doing column based on STATUS',
 		);
 
 		// Now change to PRIORITY property
@@ -192,22 +178,20 @@ describe('Integration Tests - Property Selection', () => {
 		view.onDataUpdated();
 
 		const priorityColumns = view.containerEl.querySelectorAll('.obk-column');
-		const priorityColumnValues = Array.from(priorityColumns).map((col) =>
-			col.getAttribute('data-column-value')
-		);
+		const priorityColumnValues = Array.from(priorityColumns).map((col) => col.getAttribute('data-column-value'));
 
 		// Verify PRIORITY-based columns exist
 		assert.ok(
 			priorityColumnValues.some((val) => val?.includes('High')),
-			'Should have High column based on PRIORITY'
+			'Should have High column based on PRIORITY',
 		);
 		assert.ok(
 			priorityColumnValues.some((val) => val?.includes('Medium')),
-			'Should have Medium column based on PRIORITY'
+			'Should have Medium column based on PRIORITY',
 		);
 		assert.ok(
 			priorityColumnValues.some((val) => val?.includes('Low')),
-			'Should have Low column based on PRIORITY'
+			'Should have Low column based on PRIORITY',
 		);
 
 		// Verify entries are regrouped correctly
@@ -237,16 +221,8 @@ describe('Integration Tests - Property Selection', () => {
 		const priorityCardCount = priorityCards.length;
 
 		// Card count should remain the same (all entries should still be present)
-		assert.strictEqual(
-			statusCardCount,
-			priorityCardCount,
-			'Card count should remain the same after property change'
-		);
-		assert.strictEqual(
-			priorityCardCount,
-			entries.length,
-			'All entries should be present'
-		);
+		assert.strictEqual(statusCardCount, priorityCardCount, 'Card count should remain the same after property change');
+		assert.strictEqual(priorityCardCount, entries.length, 'All entries should be present');
 	});
 });
 
@@ -300,16 +276,8 @@ describe('Integration Tests - Multiple Views', () => {
 		assert.ok(columns2.length > 0, 'View2 should have columns');
 
 		// Verify groupByPropertyId is independent
-		assert.strictEqual(
-			(view1 as any).groupByPropertyId,
-			PROPERTY_STATUS,
-			'View1 should have STATUS property'
-		);
-		assert.strictEqual(
-			(view2 as any).groupByPropertyId,
-			PROPERTY_PRIORITY,
-			'View2 should have PRIORITY property'
-		);
+		assert.strictEqual((view1 as any).groupByPropertyId, PROPERTY_STATUS, 'View1 should have STATUS property');
+		assert.strictEqual((view2 as any).groupByPropertyId, PROPERTY_PRIORITY, 'View2 should have PRIORITY property');
 	});
 
 	test('Cleanup does not affect other instances', () => {
@@ -407,13 +375,12 @@ describe('Integration Tests - Edge Cases', () => {
 		assert.ok(board, 'Board should be rendered');
 
 		// Entry without property should go to Uncategorized
-		const uncategorizedColumn = Array.from(
-			view.containerEl.querySelectorAll('.obk-column')
-		).find((col) => col.getAttribute('data-column-value')?.includes('Uncategorized'));
+		const uncategorizedColumn = Array.from(view.containerEl.querySelectorAll('.obk-column')).find((col) =>
+			col.getAttribute('data-column-value')?.includes('Uncategorized'),
+		);
 
 		assert.ok(uncategorizedColumn, 'Uncategorized column should exist');
 		const uncategorizedCards = uncategorizedColumn?.querySelectorAll('.obk-card');
 		assert.ok(uncategorizedCards && uncategorizedCards.length >= 1, 'Should have at least one uncategorized card');
 	});
 });
-

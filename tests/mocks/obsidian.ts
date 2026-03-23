@@ -57,14 +57,14 @@ export abstract class BasesView {
 		getOrder(): BasesPropertyId[];
 		getDisplayName(propertyId: BasesPropertyId): string;
 	};
-	
+
 	constructor(controller: QueryController) {
 		this.app = controller.app;
 		this.data = controller.data;
 		this.allProperties = controller.allProperties;
 		this.config = controller.config;
 	}
-	
+
 	abstract onDataUpdated(): void;
 	onClose?(): void;
 }
@@ -72,15 +72,15 @@ export abstract class BasesView {
 export class Plugin {
 	app: App;
 	manifest: any;
-	
+
 	constructor(app: App, manifest: any) {
 		this.app = app;
 		this.manifest = manifest;
 	}
-	
+
 	async onload(): Promise<void> {}
 	onunload(): void {}
-	
+
 	registerBasesView?(viewType: string, options: any): void {
 		// Mock implementation
 	}
@@ -98,4 +98,3 @@ export function parsePropertyId(propertyId: BasesPropertyId): { name: string; so
 		name: propertyId,
 	};
 }
-

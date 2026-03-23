@@ -10,11 +10,11 @@ class BasesView {
 		this.allProperties = controller.allProperties;
 		this.config = controller.config;
 	}
-	
+
 	onDataUpdated() {
 		throw new Error('Must be implemented by subclass');
 	}
-	
+
 	onClose() {}
 }
 
@@ -23,10 +23,10 @@ class Plugin {
 		this.app = app;
 		this.manifest = manifest;
 	}
-	
+
 	async onload() {}
 	onunload() {}
-	
+
 	registerBasesView(viewType, options) {
 		// Mock implementation
 	}
