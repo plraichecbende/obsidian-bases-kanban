@@ -56,6 +56,8 @@ export const CSS_CLASSES = {
 	CARD: 'obk-card',
 	CARD_TITLE: 'obk-card-title',
 	CARD_PREVIEW: 'obk-card-preview',
+	CARD_ACTIVE: 'obk-card--active',
+	CARD_HOVER: 'obk-card--hover',
 	CARD_DRAGGING: 'obk-card-dragging',
 	CARD_GHOST: 'obk-card-ghost',
 	CARD_CHOSEN: 'obk-card-chosen',
@@ -68,6 +70,9 @@ export const CSS_CLASSES = {
 
 	// Sortable placeholder (fallback / shared ghost style)
 	SORTABLE_GHOST: 'obk-sortable-ghost',
+
+	// Column remove button (shown only when column is empty)
+	COLUMN_REMOVE_BTN: 'obk-column-remove-btn',
 
 	// Color picker
 	COLUMN_COLOR_BTN: 'obk-column-color-btn',
