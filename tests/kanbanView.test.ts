@@ -2393,6 +2393,140 @@ describe('Empty Column Persistence - Remove column action', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Column persistence when the group-by property disappears from data
+// ---------------------------------------------------------------------------
+
+describe('Column persistence when group-by property disappears from allProperties', () => {
+	let scrollEl: HTMLElement;
+	let controller: any;
+	let app: any;
+
+	beforeEach(() => {
+		scrollEl = createDivWithMethods();
+		app = createMockApp();
+	});
+
+	test('groupByPropertyId is not replaced by another available property', () => {
+		// Regression: when the last note with the group-by field is updated,
+		// Obsidian may drop that property from allProperties while other
+		// properties remain. The board must keep using the configured property,
+		// not silently switch to whichever property is now first in the list.
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// PROPERTY_STATUS drops out of allProperties; PROPERTY_PRIORITY remains
+		(controller as any).allProperties = [PROPERTY_PRIORITY];
+		triggerDataUpdate(view);
+
+		assert.strictEqual(
+			(view as any).groupByPropertyId,
+			PROPERTY_STATUS,
+			'groupByPropertyId should not switch to PROPERTY_PRIORITY',
+		);
+	});
+
+	test('Saved column values are not replaced by values from the fallback property', () => {
+		// Regression: before the fix, groupByPropertyId switched to PROPERTY_PRIORITY
+		// (whose values are "High", "Medium", "Low"), replacing the original swimlanes.
+		const entries = createEntriesWithMixedProperties(); // has both STATUS and PRIORITY values
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', { [PROPERTY_STATUS]: ['To Do', 'Doing', 'Done'] });
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// STATUS drops out; only PRIORITY remains
+		(controller as any).allProperties = [PROPERTY_PRIORITY];
+		triggerDataUpdate(view);
+
+		const columnValues = Array.from(view.containerEl.querySelectorAll('.obk-column')).map((col) =>
+			col.getAttribute('data-column-value'),
+		);
+
+		assert.ok(!columnValues.includes('High'), 'PRIORITY value "High" must not become a swimlane');
+		assert.ok(!columnValues.includes('Medium'), 'PRIORITY value "Medium" must not become a swimlane');
+		assert.ok(!columnValues.includes('Low'), 'PRIORITY value "Low" must not become a swimlane');
+	});
+
+	test('Saved columns remain visible when the group-by property leaves allProperties', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('columnOrders', { [PROPERTY_STATUS]: ['To Do', 'Doing', 'Done'] });
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Simulate removing the group-by field from all remaining notes
+		(controller as any).allProperties = [PROPERTY_PRIORITY];
+		triggerDataUpdate(view);
+
+		const columnValues = Array.from(view.containerEl.querySelectorAll('.obk-column')).map((col) =>
+			col.getAttribute('data-column-value'),
+		);
+		assert.ok(columnValues.includes('To Do'), 'To Do column should persist');
+		assert.ok(columnValues.includes('Doing'), 'Doing column should persist');
+		assert.ok(columnValues.includes('Done'), 'Done column should persist');
+	});
+
+	test('Saved columns render as empty when all entries are removed', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view); // builds and persists To Do / Doing / Done
+
+		// All notes removed — base returns no entries and no properties
+		controller.data.data = [];
+		(controller as any).allProperties = [];
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		assert.ok(columns.length > 0, 'Board should still show columns after all entries are removed');
+
+		const columnValues = Array.from(columns).map((col) => col.getAttribute('data-column-value'));
+		assert.ok(columnValues.includes('To Do'), 'To Do should persist as empty column');
+		assert.ok(columnValues.includes('Doing'), 'Doing should persist as empty column');
+		assert.ok(columnValues.includes('Done'), 'Done should persist as empty column');
+	});
+
+	test('Each empty persisted column has a remove button', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		controller.data.data = [];
+		(controller as any).allProperties = [];
+		triggerDataUpdate(view);
+
+		const columns = view.containerEl.querySelectorAll('.obk-column');
+		columns.forEach((col) => {
+			const removeBtn = col.querySelector('.obk-column-remove-btn');
+			assert.ok(removeBtn, `Column "${col.getAttribute('data-column-value')}" should have a remove button`);
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
 // normalizePropertyValue – 'null' string edge cases
 // ---------------------------------------------------------------------------
 

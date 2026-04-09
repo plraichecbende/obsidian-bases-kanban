@@ -256,18 +256,10 @@ export class KanbanView extends BasesView {
 	private render(): void {
 		try {
 			const entries = this.data?.data || [];
-			if (!entries || entries.length === 0) {
-				this.fullReset();
-				this.containerEl.createDiv({
-					text: EMPTY_STATE_MESSAGES.NO_ENTRIES,
-					cls: CSS_CLASSES.EMPTY_STATE,
-				});
-				return;
-			}
-
 			const availablePropertyIds = this.allProperties || [];
 
-			if (!this.groupByPropertyId || !availablePropertyIds.includes(this.groupByPropertyId)) {
+			if (!this.groupByPropertyId) {
+				// No property configured yet — pick a default or show an error.
 				if (availablePropertyIds.length > 0) {
 					this.groupByPropertyId = availablePropertyIds[0];
 				} else {
@@ -279,10 +271,27 @@ export class KanbanView extends BasesView {
 					return;
 				}
 			}
+			// If groupByPropertyId is set but is no longer in availablePropertyIds
+			// (e.g. all notes with that property were removed), keep the configured
+			// value so the board renders from persisted prefs rather than switching
+			// to an unrelated property.
 
 			// Reload prefs when the group-by property changes
 			if (this.groupByPropertyId !== this._prefsPropertyId) {
 				this._loadPrefs(this.groupByPropertyId);
+			}
+
+			if (entries.length === 0) {
+				if (this._prefs.columnOrder.length === 0) {
+					this.fullReset();
+					this.containerEl.createDiv({
+						text: EMPTY_STATE_MESSAGES.NO_ENTRIES,
+						cls: CSS_CLASSES.EMPTY_STATE,
+					});
+					return;
+				}
+				// Entries are gone but the board has saved columns — fall through to
+				// render them as empty columns so the user can see and manage them.
 			}
 
 			// Build path→entry lookup map for O(1) access in handleCardDrop
