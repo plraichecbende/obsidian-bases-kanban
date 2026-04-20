@@ -385,6 +385,14 @@ export class KanbanView extends BasesView {
 			if (val !== null) existingColumns.set(val, col);
 		});
 
+		// Card rebuilds in patchColumnCards and column re-parenting below can clamp
+		// scrollTop on column bodies. Capture offsets up-front and restore after.
+		const scrollPositions = new Map<string, number>();
+		existingColumns.forEach((colEl, value) => {
+			const body = colEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`);
+			if (body) scrollPositions.set(value, body.scrollTop);
+		});
+
 		const newValueSet = new Set(orderedValues);
 
 		// Remove columns not in the new ordered set
@@ -416,6 +424,18 @@ export class KanbanView extends BasesView {
 		orderedValues.forEach((value) => {
 			const colEl = existingColumns.get(value);
 			if (colEl) boardEl.appendChild(colEl);
+		});
+
+		// Defer to the next frame so layout has finalized before we restore.
+		// Synchronous `scrollTop = top` can be clamped down when a transient layout
+		// pass reports a smaller scrollHeight (e.g. image-backed cards whose media
+		// has not laid out yet), and that clamp sticks once scrollHeight grows back.
+		requestAnimationFrame(() => {
+			scrollPositions.forEach((top, value) => {
+				const colEl = existingColumns.get(value);
+				const body = colEl?.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`);
+				if (body) body.scrollTop = top;
+			});
 		});
 	}
 
