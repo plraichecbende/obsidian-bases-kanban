@@ -19,6 +19,9 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
 (global as any).HTMLAnchorElement = dom.window.HTMLAnchorElement;
 (global as any).Element = dom.window.Element;
 (global as any).MouseEvent = dom.window.MouseEvent;
+(global as any).Node = dom.window.Node;
+(global as any).requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.window);
+(global as any).cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(dom.window);
 
 // Extend HTMLElement prototype with Obsidian-like methods
 const HTMLElementProto = dom.window.HTMLElement.prototype as any;
@@ -305,10 +308,17 @@ export function addClosestPolyfill(element: HTMLElement): void {
 export function setupTestEnvironment(): void {
 	// DOM is already set up at module level, but ensure it's available
 	if (typeof document === 'undefined') {
-		const newDom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+		const newDom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
+			url: 'http://localhost',
+			pretendToBeVisual: true,
+			resources: 'usable',
+		});
 		(global as any).document = newDom.window.document;
 		(global as any).window = newDom.window;
 		(global as any).HTMLElement = newDom.window.HTMLElement;
+		(global as any).Node = newDom.window.Node;
+		(global as any).requestAnimationFrame = newDom.window.requestAnimationFrame.bind(newDom.window);
+		(global as any).cancelAnimationFrame = newDom.window.cancelAnimationFrame.bind(newDom.window);
 	}
 }
 
