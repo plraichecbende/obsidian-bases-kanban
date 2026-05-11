@@ -291,3 +291,141 @@ describe('Swimlane rendering behavior', () => {
 		assert.deepStrictEqual(savedOrders[scopedKey][`High${SWIMLANE_KEY_SEPARATOR}To Do`], ['Task B.md', 'Task A.md']);
 	});
 });
+
+describe('Swimlane patch path', () => {
+	test('second render reuses existing lane elements (no full teardown)', () => {
+		const { view } = createSwimlaneView(() => PROPERTY_PRIORITY);
+		triggerDataUpdate(view);
+
+		const lanesBefore = Array.from(view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`));
+		assert.ok(lanesBefore.length > 0, 'Expected at least one lane after first render');
+
+		triggerDataUpdate(view);
+
+		const lanesAfter = Array.from(view.containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`));
+		assert.strictEqual(lanesAfter.length, lanesBefore.length, 'Lane count should be unchanged');
+
+		// Same element references — elements were reused, not recreated
+		lanesBefore.forEach((lane, i) => {
+			assert.strictEqual(lanesAfter[i], lane, `Lane ${i} element should be the same reference`);
+		});
+	});
+
+	test('null lane (flat mode) is never written to swimlaneOrders', () => {
+		const { view, controller } = createSwimlaneView(() => null);
+		triggerDataUpdate(view);
+
+		const swimlaneOrders = controller.config.get('swimlaneOrders');
+		assert.ok(!swimlaneOrders, 'swimlaneOrders should not be written in flat mode');
+	});
+
+	test('null lane (flat mode) is never written to collapsedLanes', () => {
+		const { view, controller } = createSwimlaneView(() => null);
+		triggerDataUpdate(view);
+
+		const collapsedLanes = controller.config.get('collapsedLanes');
+		assert.ok(!collapsedLanes, 'collapsedLanes should not be written in flat mode');
+	});
+
+	test('switching from flat to swimlane mode triggers a full rebuild', () => {
+		let swimlaneProperty: typeof PROPERTY_PRIORITY | null = null;
+		const { view } = createSwimlaneView(() => swimlaneProperty);
+		triggerDataUpdate(view);
+
+		const boardBefore = view.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
+		assert.ok(boardBefore, 'Board should exist after flat render');
+		assert.ok(
+			!boardBefore.classList.contains(CSS_CLASSES.BOARD_WITH_SWIMLANES),
+			'Board should not have swimlane class in flat mode',
+		);
+
+		swimlaneProperty = PROPERTY_PRIORITY;
+		triggerDataUpdate(view);
+
+		const boardAfter = view.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
+		assert.ok(boardAfter, 'Board should exist after swimlane render');
+		assert.notStrictEqual(boardAfter, boardBefore, 'Board element should be a new element after mode switch');
+		assert.ok(boardAfter.classList.contains(CSS_CLASSES.BOARD_WITH_SWIMLANES), 'New board should have swimlane class');
+	});
+
+	test('switching from swimlane to flat mode triggers a full rebuild', () => {
+		let swimlaneProperty: typeof PROPERTY_PRIORITY | null = PROPERTY_PRIORITY;
+		const { view } = createSwimlaneView(() => swimlaneProperty);
+		triggerDataUpdate(view);
+
+		const boardBefore = view.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
+		assert.ok(boardBefore?.classList.contains(CSS_CLASSES.BOARD_WITH_SWIMLANES), 'Board should have swimlane class');
+
+		swimlaneProperty = null;
+		triggerDataUpdate(view);
+
+		const boardAfter = view.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
+		assert.notStrictEqual(boardAfter, boardBefore, 'Board element replaced on mode switch');
+		assert.ok(
+			!boardAfter?.classList.contains(CSS_CLASSES.BOARD_WITH_SWIMLANES),
+			'New board should not have swimlane class',
+		);
+		assert.strictEqual(view.containerEl.querySelectorAll(`.${CSS_CLASSES.SWIMLANE}`).length, 0, 'No lanes in flat mode');
+	});
+
+	test('lane removed on second render destroys its columnSortable and removes from DOM', () => {
+		const { view, controller } = createSwimlaneView(() => PROPERTY_PRIORITY);
+		triggerDataUpdate(view);
+
+		assert.strictEqual(
+			view.containerEl.querySelectorAll(`.${CSS_CLASSES.SWIMLANE}`).length,
+			2,
+			'Expected High and Low lanes',
+		);
+		assert.strictEqual((view as any).swimlaneColumnSortables.size, 2, 'Expected sortable per lane');
+
+		// Keep only Low-priority entries so the High lane disappears on the next render
+		controller.data.data = controller.data.data.filter(
+			(e: BasesEntry) => e.getValue(PROPERTY_PRIORITY)?.toString() === 'Low',
+		);
+		triggerDataUpdate(view);
+
+		assert.strictEqual(
+			view.containerEl.querySelectorAll(`.${CSS_CLASSES.SWIMLANE}`).length,
+			1,
+			'High lane should be removed',
+		);
+		assert.strictEqual((view as any).swimlaneColumnSortables.size, 1, 'Sortable for removed lane should be destroyed');
+		assert.ok(!view.containerEl.querySelector(`[${DATA_ATTRIBUTES.SWIMLANE_VALUE}="High"]`), 'High lane element gone');
+	});
+
+	test('new lane appearing on second render registers a columnSortable', () => {
+		const { view, controller } = createSwimlaneView(() => PROPERTY_PRIORITY);
+
+		// Start with only Low-priority entries so the first render produces one lane
+		const lowOnly = createSwimlaneEntries().filter((e) => e.getValue(PROPERTY_PRIORITY)?.toString() === 'Low');
+		controller.data.data = lowOnly;
+		triggerDataUpdate(view);
+
+		assert.strictEqual(view.containerEl.querySelectorAll(`.${CSS_CLASSES.SWIMLANE}`).length, 1, 'Expected only Low lane');
+		const sortableCountBefore = (view as any).swimlaneColumnSortables.size;
+
+		// Add an entry whose priority is a brand-new value not seen before
+		const newEntry = createMockBasesEntry(createMockTFile('Task D.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_PRIORITY]: 'Medium',
+		});
+		controller.data.data = [...lowOnly, newEntry];
+		triggerDataUpdate(view);
+
+		assert.strictEqual(
+			view.containerEl.querySelectorAll(`.${CSS_CLASSES.SWIMLANE}`).length,
+			2,
+			'Medium lane should be added',
+		);
+		assert.strictEqual(
+			(view as any).swimlaneColumnSortables.size,
+			sortableCountBefore + 1,
+			'New sortable registered for added lane',
+		);
+		assert.ok(
+			view.containerEl.querySelector(`[${DATA_ATTRIBUTES.SWIMLANE_VALUE}="Medium"]`),
+			'Medium lane element exists',
+		);
+	});
+});

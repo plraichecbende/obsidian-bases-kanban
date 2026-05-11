@@ -54,6 +54,17 @@ ESLint handles linting; [Biome](https://biomejs.dev/) handles formatting. They a
 
 A pre-commit hook (`.githooks/pre-commit`) runs `format:check` then `lint` automatically after `npm install` via the `prepare` script.
 
+## Verification
+
+Run all four checks before committing or opening a PR:
+
+```bash
+npm run format        # Biome must report no formatting violations
+npm run lint          # ESLint must report no errors
+npm test              # all tests must pass
+npm run build         # TypeScript must compile and bundle cleanly
+```
+
 ## File & folder conventions
 
 - **Organize code into multiple files**: Split functionality across separate modules rather than putting everything in `main.ts`.

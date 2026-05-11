@@ -143,9 +143,8 @@ export class KanbanView extends BasesView {
 	private imagePropertyId: BasesPropertyId | null = null;
 	private _columnSortables: Map<string, Sortable> = new Map();
 	private _entryMap: Map<string, BasesEntry> = new Map();
-	private columnSortable: Sortable | null = null;
 	private swimlaneSortable: Sortable | null = null;
-	private swimlaneColumnSortables: Sortable[] = [];
+	private swimlaneColumnSortables: Map<string | null, Sortable> = new Map();
 	private _debouncedRender: DebouncedFn<() => void>;
 	private activeColorPicker: HTMLElement | null = null;
 
@@ -405,7 +404,8 @@ export class KanbanView extends BasesView {
 					: null;
 
 			// Reload prefs when either grouping axis changes.
-			if (this.groupByPropertyId !== this._prefsPropertyId || swimlanePropertyId !== this._prefsSwimlanePropertyId) {
+			const groupChanged = this.groupByPropertyId !== this._prefsPropertyId;
+			if (groupChanged || swimlanePropertyId !== this._prefsSwimlanePropertyId) {
 				this._loadPrefs(this.groupByPropertyId, swimlanePropertyId);
 			}
 
@@ -518,15 +518,20 @@ export class KanbanView extends BasesView {
 				imageAspectRatioChanged ||
 				swimlanePropertyChanged;
 
+			const lanes = new Map<string | null, Map<string, BasesEntry[]>>();
 			if (groupedByLane) {
-				// Swimlane mode: full-rebuild on every render. The patch path is
-				// only worth maintaining for the flat layout for now; lane×column
-				// patching is a follow-up optimization.
-				this.fullRebuildSwimlanes(orderedValues, groupedByLane);
-			} else if (!existingBoard || this._prefsPropertyId !== this.groupByPropertyId || optionsChanged) {
-				this.fullRebuild(orderedValues, groupedEntries);
+				groupedByLane.forEach((v, k) => lanes.set(k, v));
 			} else {
-				this.patchBoard(existingBoard, orderedValues, groupedEntries);
+				lanes.set(null, groupedEntries);
+			}
+			const hasSwimlanes = groupedByLane !== null;
+			const existingIsSwimlane = existingBoard?.classList.contains(CSS_CLASSES.BOARD_WITH_SWIMLANES) ?? false;
+			const modeChanged = hasSwimlanes !== existingIsSwimlane;
+
+			if (!existingBoard || modeChanged || groupChanged || optionsChanged) {
+				this.fullRebuild(orderedValues, lanes, hasSwimlanes);
+			} else {
+				this.patchBoard(orderedValues, lanes, hasSwimlanes);
 			}
 			this.reapplyActiveCard();
 		} catch (error) {
@@ -537,16 +542,12 @@ export class KanbanView extends BasesView {
 	private destroySortables(): void {
 		this._columnSortables.forEach((s) => s.destroy());
 		this._columnSortables.clear();
-		if (this.columnSortable) {
-			this.columnSortable.destroy();
-			this.columnSortable = null;
-		}
 		if (this.swimlaneSortable) {
 			this.swimlaneSortable.destroy();
 			this.swimlaneSortable = null;
 		}
 		this.swimlaneColumnSortables.forEach((s) => s.destroy());
-		this.swimlaneColumnSortables = [];
+		this.swimlaneColumnSortables.clear();
 	}
 
 	private fullReset(): void {
@@ -555,108 +556,122 @@ export class KanbanView extends BasesView {
 		this._entryMap.clear();
 	}
 
-	private fullRebuild(orderedValues: string[], groupedEntries: Map<string, BasesEntry[]>): void {
-		this.containerEl.empty();
-		this.destroySortables();
-
-		const boardEl = this.containerEl.createDiv({ cls: CSS_CLASSES.BOARD });
-		orderedValues.forEach((value) => {
-			const columnEl = this.createColumn(value, groupedEntries.get(value) || []);
-			boardEl.appendChild(columnEl);
-		});
-
-		this.initializeSortable();
-		this.initializeColumnSortable();
-	}
-
-	/**
-	 * Build a vertical stack of swimlanes, each containing the same column
-	 * sequence. Empty (lane × column) cells render as empty bodies — same
-	 * affordance as an empty saved column in flat mode.
-	 *
-	 * Sortable instances are attached per (lane × column) cell using a unique
-	 * key. They share `SORTABLE_GROUP` so cards drag freely across lanes;
-	 * `handleCardDrop` reads the destination lane from the closest ancestor
-	 * `.obk-swimlane` and updates the swimlane property in addition to the
-	 * column property.
-	 */
-	private fullRebuildSwimlanes(
+	private fullRebuild(
 		orderedColumnValues: string[],
-		groupedByLane: Map<string, Map<string, BasesEntry[]>>,
+		lanes: Map<string | null, Map<string, BasesEntry[]>>,
+		hasSwimlanes: boolean,
 	): void {
 		this.containerEl.empty();
 		this.destroySortables();
-
-		const boardEl = this.containerEl.createDiv({ cls: `${CSS_CLASSES.BOARD} ${CSS_CLASSES.BOARD_WITH_SWIMLANES}` });
-
-		const liveLaneValues = Array.from(groupedByLane.keys());
-
-		// Merge any newly-seen lane values into prefs once, on first observation.
-		// Mirrors the column-order init in render() — alphabetical for the
-		// initial save, append for subsequent additions. Persisted eagerly so
-		// the order survives a reload even before the user reorders manually.
-		const newLaneValues = liveLaneValues.filter((v) => !this._prefs.swimlaneOrder.includes(v));
-		if (newLaneValues.length > 0) {
-			const isInitialOrder = this._prefs.swimlaneOrder.length === 0;
-			if (isInitialOrder) {
-				this._prefs.swimlaneOrder = [...newLaneValues].sort((a, b) => {
-					if (a === UNCATEGORIZED_LABEL) return 1;
-					if (b === UNCATEGORIZED_LABEL) return -1;
-					return a.localeCompare(b);
-				});
-			} else {
-				this._prefs.swimlaneOrder = [...this._prefs.swimlaneOrder, ...newLaneValues];
-			}
-			this._persistPrefs();
-		}
-
-		const orderedLanes = this.getOrderedSwimlaneValues(liveLaneValues);
-
-		orderedLanes.forEach((laneValue) => {
-			const laneEntries = groupedByLane.get(laneValue) ?? new Map<string, BasesEntry[]>();
-			const laneEl = boardEl.createDiv({ cls: CSS_CLASSES.SWIMLANE });
-			laneEl.setAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE, laneValue);
-			const isCollapsed = this._prefs.collapsedLanes.has(laneValue);
-			if (isCollapsed) laneEl.classList.add(CSS_CLASSES.SWIMLANE_COLLAPSED);
-
-			const headerEl = laneEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_HEADER });
-
-			const dragHandle = headerEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_DRAG_HANDLE });
-			dragHandle.textContent = '⋮⋮';
-			dragHandle.setAttribute('aria-label', `Drag to reorder lane: ${laneValue}`);
-
-			headerEl.createSpan({ text: laneValue, cls: CSS_CLASSES.SWIMLANE_TITLE });
-			const laneCount = orderedColumnValues.reduce((sum, col) => sum + (laneEntries.get(col)?.length ?? 0), 0);
-			headerEl.createSpan({ text: `${laneCount}`, cls: CSS_CLASSES.SWIMLANE_COUNT });
-
-			const toggleBtn = headerEl.createEl('button', {
-				cls: CSS_CLASSES.SWIMLANE_TOGGLE,
-				attr: { type: 'button' },
-			});
-			this.updateSwimlaneToggle(toggleBtn, isCollapsed);
-			toggleBtn.addEventListener('click', (e) => {
-				e.stopPropagation();
-				this.toggleSwimlaneCollapsed(laneValue, laneEl, toggleBtn);
-			});
-
-			const bodyEl = laneEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_BODY });
-			orderedColumnValues.forEach((columnValue) => {
-				const columnEl = this.createColumn(columnValue, laneEntries.get(columnValue) || [], {
-					showRemoveButton: false,
-					swimlaneValue: laneValue,
-				});
-				bodyEl.appendChild(columnEl);
-				const cardBody = columnEl.querySelector<HTMLElement>(
-					`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`,
-				);
-				if (cardBody) {
-					this.attachCardSortable(cardBody, this.cardOrderKey(laneValue, columnValue));
-				}
-			});
+		const boardEl = this.containerEl.createDiv({
+			cls: hasSwimlanes ? `${CSS_CLASSES.BOARD} ${CSS_CLASSES.BOARD_WITH_SWIMLANES}` : CSS_CLASSES.BOARD,
 		});
 
-		this.initializeSwimlaneSortable(boardEl);
-		this.initializeSwimlaneColumnSortables(boardEl);
+		if (hasSwimlanes) {
+			const liveLaneValues = [...lanes.keys()].filter((k): k is string => k !== null);
+			// Merge any newly-seen lane values into prefs once, on first observation.
+			// Mirrors the column-order init in render() — alphabetical for the
+			// initial save, append for subsequent additions. Persisted eagerly so
+			// the order survives a reload even before the user reorders manually.
+			const newLaneValues = liveLaneValues.filter((v) => !this._prefs.swimlaneOrder.includes(v));
+			if (newLaneValues.length > 0) {
+				const isInitialOrder = this._prefs.swimlaneOrder.length === 0;
+				if (isInitialOrder) {
+					this._prefs.swimlaneOrder = this._sortSwimlaneValues(newLaneValues);
+				} else {
+					this._prefs.swimlaneOrder = [...this._prefs.swimlaneOrder, ...newLaneValues];
+				}
+				this._persistPrefs();
+			}
+
+			const orderedLanes = this.getOrderedSwimlaneValues(liveLaneValues);
+			orderedLanes.forEach((laneValue) => {
+				const laneEntries = lanes.get(laneValue) ?? new Map<string, BasesEntry[]>();
+				const laneEl = this._buildSwimlaneElement(laneValue, laneEntries, orderedColumnValues);
+				boardEl.appendChild(laneEl);
+				const bodyEl = laneEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BODY}`);
+				if (bodyEl) this.swimlaneColumnSortables.set(laneValue, this._createColumnSortable(bodyEl));
+			});
+
+			this.initializeSwimlaneSortable(boardEl);
+		} else {
+			const colEntries = lanes.get(null) ?? new Map<string, BasesEntry[]>();
+			orderedColumnValues.forEach((colValue) => {
+				const colEl = this.createColumn(colValue, colEntries.get(colValue) ?? []);
+				boardEl.appendChild(colEl);
+				const cardBody = colEl.querySelector<HTMLElement>(
+					`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`,
+				);
+				if (cardBody) this.attachCardSortable(cardBody, this.cardOrderKey(null, colValue));
+			});
+			this.swimlaneColumnSortables.set(null, this._createColumnSortable(boardEl));
+		}
+	}
+
+	private _buildSwimlaneElement(
+		laneValue: string,
+		laneEntries: Map<string, BasesEntry[]>,
+		orderedColumnValues: string[],
+	): HTMLElement {
+		const laneEl = document.createElement('div');
+		laneEl.className = CSS_CLASSES.SWIMLANE;
+		laneEl.setAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE, laneValue);
+		const isCollapsed = this._prefs.collapsedLanes.has(laneValue);
+		if (isCollapsed) laneEl.classList.add(CSS_CLASSES.SWIMLANE_COLLAPSED);
+
+		const headerEl = laneEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_HEADER });
+		const dragHandle = headerEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_DRAG_HANDLE });
+		dragHandle.textContent = '⋮⋮';
+		dragHandle.setAttribute('aria-label', `Drag to reorder lane: ${laneValue}`);
+		headerEl.createSpan({ text: laneValue, cls: CSS_CLASSES.SWIMLANE_TITLE });
+		const laneCount = orderedColumnValues.reduce((sum, col) => sum + (laneEntries.get(col)?.length ?? 0), 0);
+		headerEl.createSpan({ text: `${laneCount}`, cls: CSS_CLASSES.SWIMLANE_COUNT });
+		const toggleBtn = headerEl.createEl('button', { cls: CSS_CLASSES.SWIMLANE_TOGGLE, attr: { type: 'button' } });
+		this.updateSwimlaneToggle(toggleBtn, isCollapsed);
+		toggleBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			try {
+				this.toggleSwimlaneCollapsed(laneValue, laneEl, toggleBtn);
+			} catch (error) {
+				console.error('KanbanView: error toggling swimlane collapsed state', error);
+			}
+		});
+
+		const bodyEl = laneEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_BODY });
+		orderedColumnValues.forEach((columnValue) => {
+			const columnEl = this.createColumn(columnValue, laneEntries.get(columnValue) ?? [], {
+				showRemoveButton: false,
+				swimlaneValue: laneValue,
+			});
+			bodyEl.appendChild(columnEl);
+			const cardBody = columnEl.querySelector<HTMLElement>(
+				`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`,
+			);
+			if (cardBody) this.attachCardSortable(cardBody, this.cardOrderKey(laneValue, columnValue));
+		});
+
+		return laneEl;
+	}
+
+	private _createColumnSortable(containerEl: HTMLElement): Sortable {
+		return new Sortable(containerEl, {
+			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
+			handle: `.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`,
+			draggable: `.${CSS_CLASSES.COLUMN}`,
+			ghostClass: CSS_CLASSES.COLUMN_GHOST,
+			dragClass: CSS_CLASSES.COLUMN_DRAGGING,
+			onStart: () => {
+				this._dragging = true;
+			},
+			onEnd: (evt: Sortable.SortableEvent) => {
+				this._dragging = false;
+				try {
+					this.handleSwimlaneColumnDrop(evt);
+				} catch (error) {
+					console.error('KanbanView: error handling column drop', error);
+				}
+			},
+		});
 	}
 
 	private initializeSwimlaneSortable(boardEl: HTMLElement): void {
@@ -690,29 +705,6 @@ export class KanbanView extends BasesView {
 		this._persistPrefs();
 	}
 
-	private initializeSwimlaneColumnSortables(boardEl: HTMLElement): void {
-		this.swimlaneColumnSortables.forEach((s) => s.destroy());
-		this.swimlaneColumnSortables = [];
-
-		boardEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BODY}`).forEach((bodyEl) => {
-			const sortable = new Sortable(bodyEl, {
-				animation: SORTABLE_CONFIG.ANIMATION_DURATION,
-				handle: `.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`,
-				draggable: `.${CSS_CLASSES.COLUMN}`,
-				ghostClass: CSS_CLASSES.COLUMN_GHOST,
-				dragClass: CSS_CLASSES.COLUMN_DRAGGING,
-				onStart: () => {
-					this._dragging = true;
-				},
-				onEnd: (evt: Sortable.SortableEvent) => {
-					this._dragging = false;
-					this.handleSwimlaneColumnDrop(evt);
-				},
-			});
-			this.swimlaneColumnSortables.push(sortable);
-		});
-	}
-
 	private handleSwimlaneColumnDrop(evt: Sortable.SortableEvent): void {
 		if (!this._prefsPropertyId || !(evt.to instanceof HTMLElement)) return;
 
@@ -730,65 +722,191 @@ export class KanbanView extends BasesView {
 		this.render();
 	}
 
-	private patchBoard(boardEl: HTMLElement, orderedValues: string[], groupedEntries: Map<string, BasesEntry[]>): void {
-		// Index existing column elements by their value
+	private patchBoard(
+		orderedColumnValues: string[],
+		lanes: Map<string | null, Map<string, BasesEntry[]>>,
+		hasSwimlanes: boolean,
+	): void {
+		const boardEl = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
+		if (!boardEl) {
+			console.error('KanbanView: patchBoard called but board element not found; skipping patch');
+			return;
+		}
+
+		// Card rebuilds and DOM re-parenting can clamp scrollTop. Capture up-front
+		// keyed by cardOrderKey(laneValue, colValue) and restore after layout settles.
+		const scrollPositions = new Map<string, number>();
+		boardEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`).forEach((body) => {
+			const colEl = body.closest<HTMLElement>(`.${CSS_CLASSES.COLUMN}`);
+			const colVal = colEl?.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+			const laneEl = body.closest<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`);
+			const laneVal = laneEl?.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) ?? null;
+			if (colVal) scrollPositions.set(this.cardOrderKey(laneVal, colVal), body.scrollTop);
+		});
+
+		if (hasSwimlanes) {
+			const liveLaneValues = [...lanes.keys()].filter((k): k is string => k !== null);
+			// Merge any newly-seen lane values into prefs.
+			const newLaneValues = liveLaneValues.filter((v) => !this._prefs.swimlaneOrder.includes(v));
+			if (newLaneValues.length > 0) {
+				const isInitialOrder = this._prefs.swimlaneOrder.length === 0;
+				if (isInitialOrder) {
+					this._prefs.swimlaneOrder = this._sortSwimlaneValues(newLaneValues);
+				} else {
+					this._prefs.swimlaneOrder = [...this._prefs.swimlaneOrder, ...newLaneValues];
+				}
+				this._persistPrefs();
+			}
+
+			const orderedLanes = this.getOrderedSwimlaneValues(liveLaneValues);
+			const newLaneSet = new Set(orderedLanes);
+
+			// Index existing lanes
+			const existingLanes = new Map<string, HTMLElement>();
+			boardEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`).forEach((laneEl) => {
+				const val = laneEl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE);
+				if (val !== null) existingLanes.set(val, laneEl);
+			});
+
+			// Remove lanes not in new set
+			existingLanes.forEach((laneEl, laneValue) => {
+				if (!newLaneSet.has(laneValue)) {
+					const colSortable = this.swimlaneColumnSortables.get(laneValue);
+					if (colSortable) {
+						colSortable.destroy();
+						this.swimlaneColumnSortables.delete(laneValue);
+					}
+					orderedColumnValues.forEach((colVal) => {
+						const key = this.cardOrderKey(laneValue, colVal);
+						const s = this._columnSortables.get(key);
+						if (s) {
+							s.destroy();
+							this._columnSortables.delete(key);
+						}
+					});
+					laneEl.remove();
+					existingLanes.delete(laneValue);
+				}
+			});
+
+			// Patch or create lanes
+			orderedLanes.forEach((laneValue) => {
+				const laneEntries = lanes.get(laneValue) ?? new Map<string, BasesEntry[]>();
+				if (!existingLanes.has(laneValue)) {
+					const laneEl = this._buildSwimlaneElement(laneValue, laneEntries, orderedColumnValues);
+					boardEl.appendChild(laneEl);
+					existingLanes.set(laneValue, laneEl);
+					const bodyEl = laneEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BODY}`);
+					if (bodyEl) {
+						this.swimlaneColumnSortables.set(laneValue, this._createColumnSortable(bodyEl));
+					} else {
+						console.error('KanbanView: swimlane body element not found; column sorting will be broken', laneValue);
+					}
+				} else {
+					const laneEl = existingLanes.get(laneValue);
+					if (laneEl) {
+						// Update lane count
+						const countEl = laneEl.querySelector(`.${CSS_CLASSES.SWIMLANE_COUNT}`);
+						if (countEl) {
+							const count = orderedColumnValues.reduce((sum, col) => sum + (laneEntries.get(col)?.length ?? 0), 0);
+							countEl.textContent = `${count}`;
+						}
+						// Patch columns within lane body
+						const bodyEl = laneEl.querySelector<HTMLElement>(`.${CSS_CLASSES.SWIMLANE_BODY}`);
+						if (bodyEl) this._patchColumns(bodyEl, orderedColumnValues, laneEntries, laneValue);
+					}
+				}
+			});
+
+			// Re-order lanes in the DOM
+			orderedLanes.forEach((laneValue) => {
+				const laneEl = existingLanes.get(laneValue);
+				if (laneEl) boardEl.appendChild(laneEl);
+			});
+
+			if (!this.swimlaneSortable) this.initializeSwimlaneSortable(boardEl);
+		} else {
+			// Null lane: columns are direct children of boardEl
+			const colEntries = lanes.get(null) ?? new Map<string, BasesEntry[]>();
+			this._patchColumns(boardEl, orderedColumnValues, colEntries, null);
+		}
+
+		// Defer scroll restoration to the next frame so layout has finalized.
+		// Synchronous scrollTop assignment can be clamped when a transient layout
+		// pass reports a smaller scrollHeight (e.g. image-backed cards not yet laid out).
+		requestAnimationFrame(() => {
+			try {
+				boardEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`).forEach((body) => {
+					const colEl = body.closest<HTMLElement>(`.${CSS_CLASSES.COLUMN}`);
+					const colVal = colEl?.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
+					const laneEl = body.closest<HTMLElement>(`.${CSS_CLASSES.SWIMLANE}`);
+					const laneVal = laneEl?.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) ?? null;
+					if (colVal) {
+						const top = scrollPositions.get(this.cardOrderKey(laneVal, colVal));
+						if (top !== undefined) body.scrollTop = top;
+					}
+				});
+			} catch (error) {
+				console.error('KanbanView: error restoring scroll positions', error);
+			}
+		});
+	}
+
+	private _patchColumns(
+		containerEl: HTMLElement,
+		orderedColumnValues: string[],
+		groupedEntries: Map<string, BasesEntry[]>,
+		laneValue: string | null,
+	): void {
+		// Index existing columns
 		const existingColumns = new Map<string, HTMLElement>();
-		boardEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN}`).forEach((col) => {
+		containerEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN}`).forEach((col) => {
 			const val = col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
 			if (val !== null) existingColumns.set(val, col);
 		});
 
-		// Card rebuilds in patchColumnCards and column re-parenting below can clamp
-		// scrollTop on column bodies. Capture offsets up-front and restore after.
-		const scrollPositions = new Map<string, number>();
-		existingColumns.forEach((colEl, value) => {
-			const body = colEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`);
-			if (body) scrollPositions.set(value, body.scrollTop);
-		});
-
-		const newValueSet = new Set(orderedValues);
+		const newColSet = new Set(orderedColumnValues);
 
 		// Remove columns not in the new ordered set
-		existingColumns.forEach((colEl, value) => {
-			if (!newValueSet.has(value)) {
-				this.detachColumn(value, colEl);
-				existingColumns.delete(value);
+		existingColumns.forEach((colEl, colValue) => {
+			if (!newColSet.has(colValue)) {
+				const key = this.cardOrderKey(laneValue, colValue);
+				const s = this._columnSortables.get(key);
+				if (s) {
+					s.destroy();
+					this._columnSortables.delete(key);
+				}
+				colEl.remove();
+				existingColumns.delete(colValue);
 			}
 		});
 
-		// Add new columns; patch cards in existing columns
-		orderedValues.forEach((value) => {
-			const newEntries = groupedEntries.get(value) || [];
-			if (!existingColumns.has(value)) {
-				const columnEl = this.createColumn(value, newEntries);
-				boardEl.appendChild(columnEl);
-				existingColumns.set(value, columnEl);
-				const body = columnEl.querySelector<HTMLElement>(
+		// Add new columns or patch existing
+		orderedColumnValues.forEach((colValue) => {
+			const entries = groupedEntries.get(colValue) ?? [];
+			if (!existingColumns.has(colValue)) {
+				const options = laneValue !== null ? { showRemoveButton: false as const, swimlaneValue: laneValue } : {};
+				const colEl = this.createColumn(colValue, entries, options);
+				containerEl.appendChild(colEl);
+				existingColumns.set(colValue, colEl);
+				const cardBody = colEl.querySelector<HTMLElement>(
 					`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`,
 				);
-				if (body) this.attachCardSortable(body, value);
+				if (cardBody) {
+					this.attachCardSortable(cardBody, this.cardOrderKey(laneValue, colValue));
+				} else {
+					console.warn('KanbanView: column body not found for new column; card drag will not work', colValue);
+				}
 			} else {
-				const colEl = existingColumns.get(value);
-				if (colEl) this.patchColumnCards(colEl, newEntries);
+				const colEl = existingColumns.get(colValue);
+				if (colEl) this.patchColumnCards(colEl, entries);
 			}
 		});
 
-		// Re-order columns in the DOM to match orderedValues
-		orderedValues.forEach((value) => {
-			const colEl = existingColumns.get(value);
-			if (colEl) boardEl.appendChild(colEl);
-		});
-
-		// Defer to the next frame so layout has finalized before we restore.
-		// Synchronous `scrollTop = top` can be clamped down when a transient layout
-		// pass reports a smaller scrollHeight (e.g. image-backed cards whose media
-		// has not laid out yet), and that clamp sticks once scrollHeight grows back.
-		requestAnimationFrame(() => {
-			scrollPositions.forEach((top, value) => {
-				const colEl = existingColumns.get(value);
-				const body = colEl?.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`);
-				if (body) body.scrollTop = top;
-			});
+		// Re-order columns in the DOM to match orderedColumnValues
+		orderedColumnValues.forEach((colValue) => {
+			const colEl = existingColumns.get(colValue);
+			if (colEl) containerEl.appendChild(colEl);
 		});
 	}
 
@@ -800,11 +918,12 @@ export class KanbanView extends BasesView {
 		const countEl = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_COUNT}`);
 		if (countEl) countEl.textContent = `${newEntries.length}`;
 
-		// Sync remove button: show only when column has no entries
+		// Sync remove button: show only for flat-mode empty columns (never inside a swimlane)
 		const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
 		const columnValue = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
 		const existingRemoveBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`) ?? null;
-		if (headerEl && newEntries.length === 0 && !existingRemoveBtn && columnValue) {
+		const isInSwimlane = !!columnEl.closest(`.${CSS_CLASSES.SWIMLANE}`);
+		if (headerEl && newEntries.length === 0 && !existingRemoveBtn && columnValue && !isInSwimlane) {
 			headerEl.appendChild(this.createRemoveButton(columnValue, columnEl));
 		} else if (newEntries.length > 0 && existingRemoveBtn) {
 			existingRemoveBtn.remove();
@@ -931,13 +1050,17 @@ export class KanbanView extends BasesView {
 	 * UNCATEGORIZED_LABEL pinned last. New lanes (not yet in saved order) are
 	 * appended at the end.
 	 */
+	private _sortSwimlaneValues(values: string[]): string[] {
+		return [...values].sort((a, b) => {
+			if (a === UNCATEGORIZED_LABEL) return 1;
+			if (b === UNCATEGORIZED_LABEL) return -1;
+			return a.localeCompare(b);
+		});
+	}
+
 	private getOrderedSwimlaneValues(liveValues: string[]): string[] {
 		if (!this._prefs.swimlaneOrder.length) {
-			return [...liveValues].sort((a, b) => {
-				if (a === UNCATEGORIZED_LABEL) return 1;
-				if (b === UNCATEGORIZED_LABEL) return -1;
-				return a.localeCompare(b);
-			});
+			return this._sortSwimlaneValues(liveValues);
 		}
 		const liveSet = new Set(liveValues);
 		const ordered = this._prefs.swimlaneOrder.filter((v) => liveSet.has(v));
@@ -1445,17 +1568,6 @@ export class KanbanView extends BasesView {
 		this._columnSortables.set(value, sortable);
 	}
 
-	private initializeSortable(): void {
-		const selector = `.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`;
-		this.containerEl.querySelectorAll(selector).forEach((columnBody) => {
-			if (!(columnBody instanceof HTMLElement)) return;
-			const colEl = columnBody.closest(`.${CSS_CLASSES.COLUMN}`);
-			const value = colEl instanceof HTMLElement ? colEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) : null;
-			if (!value) return;
-			this.attachCardSortable(columnBody, value);
-		});
-	}
-
 	private async handleCardDrop(evt: Sortable.SortableEvent): Promise<void> {
 		if (!(evt.item instanceof HTMLElement)) {
 			console.warn('Card element is not an HTMLElement:', evt.item);
@@ -1661,42 +1773,6 @@ export class KanbanView extends BasesView {
 		const ordered = savedOrder.map((p) => entryMap.get(p)).filter((e): e is BasesEntry => e !== undefined);
 		const unsaved = entries.filter((e) => !savedOrder.includes(e.file.path));
 		return [...ordered, ...unsaved];
-	}
-
-	private initializeColumnSortable(): void {
-		if (this.columnSortable) {
-			this.columnSortable.destroy();
-		}
-
-		const boardEl = this.containerEl.querySelector(`.${CSS_CLASSES.BOARD}`);
-		if (!boardEl || !(boardEl instanceof HTMLElement)) return;
-
-		this.columnSortable = new Sortable(boardEl, {
-			animation: SORTABLE_CONFIG.ANIMATION_DURATION,
-			handle: `.${CSS_CLASSES.COLUMN_DRAG_HANDLE}`,
-			draggable: `.${CSS_CLASSES.COLUMN}`,
-			ghostClass: CSS_CLASSES.COLUMN_GHOST,
-			dragClass: CSS_CLASSES.COLUMN_DRAGGING,
-			onStart: () => {
-				this._dragging = true;
-			},
-			onEnd: (evt: Sortable.SortableEvent) => {
-				this._dragging = false;
-				this.handleColumnDrop(evt);
-			},
-		});
-	}
-
-	private handleColumnDrop(evt: Sortable.SortableEvent): void {
-		if (!this._prefsPropertyId) return;
-
-		const columns = this.containerEl.querySelectorAll(`.${CSS_CLASSES.COLUMN}`);
-		const order = Array.from(columns)
-			.map((col) => col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE))
-			.filter((v): v is string => v !== null);
-
-		this._prefs.columnOrder = order;
-		this._persistPrefs();
 	}
 
 	onClose(): void {

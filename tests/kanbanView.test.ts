@@ -1398,7 +1398,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
 
-		const columnSortable = (view as any).columnSortable;
+		const columnSortable = (view as any).swimlaneColumnSortables.get(null);
 		assert.ok(columnSortable, 'Column Sortable instance should be created');
 		assert.ok(!columnSortable.destroyed, 'Column Sortable should not be destroyed');
 	});
@@ -1413,7 +1413,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
 
-		const columnSortable = (view as any).columnSortable;
+		const columnSortable = (view as any).swimlaneColumnSortables.get(null);
 		assert.ok(columnSortable, 'Column Sortable should exist');
 
 		// Check the columnSortable instance directly
@@ -1435,7 +1435,7 @@ describe('Column Reordering - Sortable Initialization', () => {
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
 
-		const columnSortable = (view as any).columnSortable;
+		const columnSortable = (view as any).swimlaneColumnSortables.get(null);
 		assert.ok(columnSortable, 'Column Sortable should exist');
 
 		// Verify it's a Sortable instance (has destroy method)
@@ -1443,8 +1443,12 @@ describe('Column Reordering - Sortable Initialization', () => {
 
 		view.onClose();
 
-		// After cleanup, columnSortable should be null
-		assert.strictEqual((view as any).columnSortable, null, 'Column Sortable should be null after cleanup');
+		// After cleanup, swimlaneColumnSortables should be empty
+		assert.strictEqual(
+			(view as any).swimlaneColumnSortables.size,
+			0,
+			'swimlaneColumnSortables should be empty after cleanup',
+		);
 
 		// Verify destroy was called if the mock tracks it
 		if (columnSortable && typeof columnSortable.destroyed !== 'undefined') {
@@ -1463,7 +1467,7 @@ describe('Column Reordering - Order Persistence', () => {
 		app = createMockApp();
 	});
 
-	test('handleColumnDrop saves order to storage', () => {
+	test('handleSwimlaneColumnDrop saves order to storage', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
@@ -1487,7 +1491,8 @@ describe('Column Reordering - Order Persistence', () => {
 			newIndex: columns.length - 1,
 		};
 
-		(view as any).handleColumnDrop(mockEvent);
+		// handleSwimlaneColumnDrop handles both flat (boardEl) and swimlane (bodyEl) drops
+		(view as any).handleSwimlaneColumnDrop(mockEvent);
 
 		// Verify order was saved in config
 		const savedOrders = controller.config.get('columnOrders') as Record<string, string[]> | null;
