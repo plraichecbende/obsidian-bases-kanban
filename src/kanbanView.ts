@@ -1255,6 +1255,7 @@ export class KanbanView extends BasesView {
 			if (!valueStr || valueStr === 'null') continue;
 			const label = this.config?.getDisplayName(propertyId) ?? propertyId;
 			const propertyEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_PROPERTY });
+			propertyEl.setAttribute('data-label', propertyId);
 			if (shouldWrap) {
 				propertyEl.classList.add(CSS_CLASSES.CARD_PROPERTY_WRAP);
 			}
