@@ -25,6 +25,9 @@ export type ColorName = (typeof COLOR_PALETTE)[number]['name'];
 /** Sortable.js group name for kanban columns */
 export const SORTABLE_GROUP = 'obk-columns';
 
+/** Notice shown when Base sorting prevents manual card ordering */
+export const SORTED_CARD_ORDER_NOTICE = '⚠️ Sort is active. Clear it to manually reorder cards within a column.';
+
 /** Data attribute names */
 export const DATA_ATTRIBUTES = {
 	COLUMN_VALUE: 'data-column-value',
