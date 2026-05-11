@@ -182,7 +182,7 @@ describe('View Options', () => {
 		assert.strictEqual(byKey.wrapPropertyValues.type, 'toggle');
 
 		assert.ok(byKey.quickAddFolder, 'quickAddFolder option should exist');
-		assert.strictEqual(byKey.quickAddFolder.displayName, 'New card folder');
+		assert.strictEqual(byKey.quickAddFolder.displayName, 'Add card to column folder');
 		assert.strictEqual(byKey.quickAddFolder.type, 'folder');
 	});
 

@@ -1881,7 +1881,7 @@ export class KanbanView extends BasesView {
 				placeholder: 'Optional: horizontal grouping',
 			},
 			{
-				displayName: 'New card folder',
+				displayName: 'Add card to column folder',
 				type: 'folder',
 				key: 'quickAddFolder',
 				placeholder: 'Default: base file folder',
