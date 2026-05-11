@@ -166,6 +166,8 @@ export class KanbanView extends BasesView {
 	private _lastImageFit: string | undefined = undefined;
 	private _lastImageAspectRatio: number | undefined = undefined;
 	private _lastSwimlanePropertyId: BasesPropertyId | null | undefined = undefined;
+	private _cardFingerprints: Map<string, string> = new Map();
+	private _deferredSortableListeners: Map<string, { el: HTMLElement; handler: () => void }> = new Map();
 
 	private _prefs: {
 		columnOrder: string[];
@@ -548,12 +550,17 @@ export class KanbanView extends BasesView {
 		}
 		this.swimlaneColumnSortables.forEach((s) => s.destroy());
 		this.swimlaneColumnSortables.clear();
+		this._deferredSortableListeners.forEach(({ el, handler }) => {
+			el.removeEventListener('pointerdown', handler);
+		});
+		this._deferredSortableListeners.clear();
 	}
 
 	private fullReset(): void {
 		this.containerEl.empty();
 		this.destroySortables();
 		this._entryMap.clear();
+		this._cardFingerprints.clear();
 	}
 
 	private fullRebuild(
@@ -893,7 +900,14 @@ export class KanbanView extends BasesView {
 					`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`,
 				);
 				if (cardBody) {
-					this.attachCardSortable(cardBody, this.cardOrderKey(laneValue, colValue));
+					const key = this.cardOrderKey(laneValue, colValue);
+					const attachOnce = () => {
+						this.attachCardSortable(cardBody, key);
+						this._deferredSortableListeners.delete(key);
+						cardBody.removeEventListener('pointerdown', attachOnce);
+					};
+					cardBody.addEventListener('pointerdown', attachOnce);
+					this._deferredSortableListeners.set(key, { el: cardBody, handler: attachOnce });
 				} else {
 					console.warn('KanbanView: column body not found for new column; card drag will not work', colValue);
 				}
@@ -908,6 +922,25 @@ export class KanbanView extends BasesView {
 			const colEl = existingColumns.get(colValue);
 			if (colEl) containerEl.appendChild(colEl);
 		});
+	}
+
+	private _computeCardFingerprint(entry: BasesEntry): string {
+		const parts: string[] = [];
+		const order = this.config?.getOrder() ?? [];
+		for (const propId of order) {
+			if (propId === this.groupByPropertyId) continue;
+			const val = entry.getValue(propId);
+			parts.push(val === null ? '' : val.toString());
+		}
+		if (this.cardTitlePropertyId) {
+			const val = entry.getValue(this.cardTitlePropertyId);
+			parts.push(val === null ? '' : val.toString());
+		}
+		if (this.imagePropertyId) {
+			const val = entry.getValue(this.imagePropertyId);
+			parts.push(val === null ? '' : val.toString());
+		}
+		return parts.join('\x00');
 	}
 
 	private patchColumnCards(columnEl: HTMLElement, newEntries: BasesEntry[]): void {
@@ -936,15 +969,21 @@ export class KanbanView extends BasesView {
 			if (path && !newPaths.has(path)) card.remove();
 		});
 
-		// Re-create all cards so that property value changes are always reflected.
+		// Re-create cards only when their content fingerprint changes, so property
+		// value updates are always reflected while unchanged cards are left in place.
 		const existingCards = new Map<string, HTMLElement>();
 		body.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.CARD}`).forEach((card) => {
 			const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
 			if (path) existingCards.set(path, card);
 		});
 		newEntries.forEach((entry) => {
-			const newCard = this.createCard(entry);
+			const fp = this._computeCardFingerprint(entry);
 			const existing = existingCards.get(entry.file.path);
+			if (existing && this._cardFingerprints.get(entry.file.path) === fp) {
+				return;
+			}
+			const newCard = this.createCard(entry);
+			this._cardFingerprints.set(entry.file.path, fp);
 			if (existing) {
 				body.replaceChild(newCard, existing);
 			} else {

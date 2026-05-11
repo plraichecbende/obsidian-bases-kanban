@@ -1832,7 +1832,7 @@ describe('Data Rendering - Card Properties', () => {
 		assert.strictEqual(propertyEls.length, 1, 'Card should show one non-group-by property');
 
 		assert.strictEqual(
-			propertyEls[0].querySelector('.obk-card-property-label')?.textContent,
+			(propertyEls[0] as HTMLElement).getAttribute('data-label'),
 			PROPERTY_PRIORITY,
 			'Label should show property id',
 		);
