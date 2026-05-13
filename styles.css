@@ -150,7 +150,7 @@
 
 /* The outer container caps height in flat mode; release it in swimlane mode
    so the board grows to fit all lanes and the parent scroll-area scrolls. */
-.obk-view-container:has(.obk-board--with-swimlanes) {
+.obk-view-container--with-swimlanes {
 	overflow: visible;
 	height: auto;
 }

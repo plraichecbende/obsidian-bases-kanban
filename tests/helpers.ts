@@ -165,7 +165,7 @@ if (!EventProto.instanceOf) {
 }
 
 // Mock TFile
-export function createMockTFile(path: string, basename?: string): TFile {
+export function createMockTFile(path: string, basename?: string, parent?: { path: string; name: string }): TFile {
 	return {
 		path,
 		name: path.split('/').pop() || path,
@@ -183,7 +183,7 @@ export function createMockTFile(path: string, basename?: string): TFile {
 			mtime: Date.now(),
 		},
 		vault: {} as any,
-		parent: null,
+		parent: parent ?? null,
 	} as TFile;
 }
 
@@ -310,6 +310,7 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 			setActiveLeaf,
 			getMostRecentLeaf,
 			mostRecentLeaf,
+			getActiveFile: (): null => null,
 		} as any,
 		fileManager: {
 			processFrontMatter,

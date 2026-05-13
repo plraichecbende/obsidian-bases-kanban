@@ -49,6 +49,7 @@ export interface App {
 		getMostRecentLeaf(): unknown;
 		setActiveLeaf(leaf: unknown, params?: { focus?: boolean }): void;
 		trigger(name: string, ...data: unknown[]): void;
+		getActiveFile(): TFile | null;
 	};
 	fileManager: {
 		processFrontMatter(file: TFile, fn: (frontmatter: any) => void | Promise<void>): Promise<void>;

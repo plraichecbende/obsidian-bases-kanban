@@ -48,6 +48,7 @@ export const SWIMLANE_KEY_SEPARATOR = '\u001F';
 export const CSS_CLASSES = {
 	// Container
 	VIEW_CONTAINER: 'obk-view-container',
+	VIEW_CONTAINER_WITH_SWIMLANES: 'obk-view-container--with-swimlanes',
 	BOARD: 'obk-board',
 	BOARD_WITH_SWIMLANES: 'obk-board--with-swimlanes',
 
