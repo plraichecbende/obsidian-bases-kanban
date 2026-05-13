@@ -118,7 +118,7 @@ export async function renderPropertyValue(
 	} else if (value instanceof ListValue) {
 		const len = value.length();
 		for (let i = 0; i < len; i++) {
-			if (i > 0) el.appendChild(activeDocument.createTextNode(', '));
+			if (i > 0) el.appendChild(el.doc.createTextNode(', '));
 			const item = value.get(i);
 			if (!(item instanceof NullValue)) {
 				await renderPropertyValue(app, item, el, sourcePath, component);
@@ -127,7 +127,7 @@ export async function renderPropertyValue(
 	} else if (app) {
 		await renderCompactMarkdown(app, value.toString(), el, sourcePath, component);
 	} else {
-		el.appendChild(activeDocument.createTextNode(value.toString()));
+		el.appendChild(el.doc.createTextNode(value.toString()));
 	}
 }
 
@@ -621,7 +621,7 @@ export class KanbanView extends BasesView {
 		laneEntries: Map<string, BasesEntry[]>,
 		orderedColumnValues: string[],
 	): HTMLElement {
-		const laneEl = activeDocument.createDiv();
+		const laneEl = this.containerEl.doc.createElement('div');
 		laneEl.className = CSS_CLASSES.SWIMLANE;
 		laneEl.setAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE, laneValue);
 		const isCollapsed = this._prefs.collapsedLanes.has(laneValue);
@@ -842,7 +842,7 @@ export class KanbanView extends BasesView {
 		// Defer scroll restoration to the next frame so layout has finalized.
 		// Synchronous scrollTop assignment can be clamped when a transient layout
 		// pass reports a smaller scrollHeight (e.g. image-backed cards not yet laid out).
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			try {
 				boardEl.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`).forEach((body) => {
 					const colEl = body.closest<HTMLElement>(`.${CSS_CLASSES.COLUMN}`);
@@ -1131,7 +1131,7 @@ export class KanbanView extends BasesView {
 		entries: BasesEntry[],
 		options: { showRemoveButton?: boolean; swimlaneValue?: string | null } = {},
 	): HTMLElement {
-		const columnEl = activeDocument.createDiv();
+		const columnEl = this.containerEl.doc.createElement('div');
 		columnEl.className = CSS_CLASSES.COLUMN;
 		columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_VALUE, value);
 
@@ -1226,7 +1226,7 @@ export class KanbanView extends BasesView {
 	}
 
 	private createCard(entry: BasesEntry): HTMLElement {
-		const cardEl = activeDocument.createDiv();
+		const cardEl = this.containerEl.doc.createElement('div');
 		cardEl.className = CSS_CLASSES.CARD;
 		const filePath = entry.file.path;
 		cardEl.setAttribute(DATA_ATTRIBUTES.ENTRY_PATH, filePath);
@@ -1320,12 +1320,12 @@ export class KanbanView extends BasesView {
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;
 
-		const popover = activeDocument.createDiv();
+		const popover = anchorEl.doc.createElement('div');
 		popover.className = CSS_CLASSES.COLUMN_COLOR_POPOVER;
 
 		const currentColor = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
 
-		const noneSwatch = activeDocument.createDiv();
+		const noneSwatch = anchorEl.doc.createElement('div');
 		noneSwatch.className = `${CSS_CLASSES.COLUMN_COLOR_SWATCH} ${CSS_CLASSES.COLUMN_COLOR_NONE}`;
 		if (!currentColor) noneSwatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
 		noneSwatch.title = 'No color';
@@ -1339,7 +1339,7 @@ export class KanbanView extends BasesView {
 		popover.appendChild(noneSwatch);
 
 		for (const color of COLOR_PALETTE) {
-			const swatch = activeDocument.createDiv();
+			const swatch = anchorEl.doc.createElement('div');
 			swatch.className = CSS_CLASSES.COLUMN_COLOR_SWATCH;
 			swatch.style.background = color.cssVar;
 			swatch.title = color.name;
@@ -1357,21 +1357,21 @@ export class KanbanView extends BasesView {
 		const rect = anchorEl.getBoundingClientRect();
 		popover.style.top = `${rect.bottom + 4}px`;
 		popover.style.left = `${rect.left}px`;
-		activeDocument.body.appendChild(popover);
+		anchorEl.doc.body.appendChild(popover);
 		this.activeColorPicker = popover;
 
 		const dismiss = (e: MouseEvent) => {
 			if (e.target instanceof Node && !popover.contains(e.target) && e.target !== anchorEl) {
 				popover.remove();
 				this.activeColorPicker = null;
-				activeDocument.removeEventListener('click', dismiss);
+				anchorEl.doc.removeEventListener('click', dismiss);
 			}
 		};
-		activeDocument.addEventListener('click', dismiss);
+		anchorEl.doc.addEventListener('click', dismiss);
 	}
 
 	private createAddButton(columnValue: string, swimlaneValue: string | null): HTMLElement {
-		const btn = activeDocument.createDiv();
+		const btn = this.containerEl.doc.createElement('div');
 		btn.className = CSS_CLASSES.COLUMN_ADD_BTN;
 		btn.setAttribute(
 			'aria-label',
@@ -1486,20 +1486,20 @@ export class KanbanView extends BasesView {
 
 	private closeNativeNewItemPopover(): void {
 		const closePopovers = () => {
-			const popovers = Array.from(activeDocument.querySelectorAll<HTMLElement>('.bases-new-item-popover'));
+			const popovers = Array.from(this.containerEl.doc.querySelectorAll<HTMLElement>('.bases-new-item-popover'));
 			if (popovers.length === 0) return;
 
-			activeDocument.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-			activeDocument.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+			this.containerEl.doc.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+			this.containerEl.doc.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 			popovers.forEach((popover) => {
 				popover.remove();
 			});
 		};
 
 		closePopovers();
-		activeWindow.requestAnimationFrame(closePopovers);
+		window.requestAnimationFrame(closePopovers);
 		for (const delay of [50, 250, 1000]) {
-			activeWindow.setTimeout(closePopovers, delay);
+			window.setTimeout(closePopovers, delay);
 		}
 	}
 
@@ -1553,7 +1553,7 @@ export class KanbanView extends BasesView {
 	}
 
 	private createRemoveButton(value: string, columnEl: HTMLElement): HTMLElement {
-		const btn = activeDocument.createDiv();
+		const btn = this.containerEl.doc.createElement('div');
 		btn.className = CSS_CLASSES.COLUMN_REMOVE_BTN;
 		btn.setAttribute('aria-label', `Remove column: ${value}`);
 		btn.setAttribute('role', 'button');
@@ -1786,9 +1786,9 @@ export class KanbanView extends BasesView {
 		let frames = 4;
 		const tick = () => {
 			restore();
-			if (--frames > 0) requestAnimationFrame(tick);
+			if (--frames > 0) window.requestAnimationFrame(tick);
 		};
-		requestAnimationFrame(tick);
+		window.requestAnimationFrame(tick);
 	}
 
 	private setActiveCard(path: string | null): void {

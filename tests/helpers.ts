@@ -22,7 +22,6 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
 (global as any).Node = dom.window.Node;
 (global as any).requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.window);
 (global as any).cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(dom.window);
-(global as any).activeDocument = dom.window.document;
 
 // Extend HTMLElement prototype with Obsidian-like methods
 const HTMLElementProto = dom.window.HTMLElement.prototype as any;
@@ -104,6 +103,14 @@ if (!HTMLElementProto.empty) {
 			this.removeChild(this.firstChild);
 		}
 	};
+}
+
+if (!Object.getOwnPropertyDescriptor(HTMLElementProto, 'doc')) {
+	Object.defineProperty(HTMLElementProto, 'doc', {
+		get: function () {
+			return this.ownerDocument;
+		},
+	});
 }
 
 const NodeProto = dom.window.Node.prototype as any;

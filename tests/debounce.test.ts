@@ -2,7 +2,7 @@ import { test, describe, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import { debounce } from '../src/utils/debounce.ts';
 
-(globalThis as any).activeWindow = globalThis;
+(globalThis as any).window = globalThis;
 
 describe('debounce', () => {
 	beforeEach(() => {

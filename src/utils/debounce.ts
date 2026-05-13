@@ -14,9 +14,9 @@ export function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: n
 	const debounced = Object.assign(
 		function (...args: Parameters<T>): void {
 			if (timer !== null) {
-				activeWindow.clearTimeout(timer);
+				window.clearTimeout(timer);
 			}
-			timer = activeWindow.setTimeout(() => {
+			timer = window.setTimeout(() => {
 				timer = null;
 				fn(...args);
 			}, delay);
@@ -24,7 +24,7 @@ export function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: n
 		{
 			cancel(): void {
 				if (timer !== null) {
-					activeWindow.clearTimeout(timer);
+					window.clearTimeout(timer);
 					timer = null;
 				}
 			},

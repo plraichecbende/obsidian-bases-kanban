@@ -45,7 +45,7 @@ export class QuickAddModal extends Modal {
 			void this.submit(submitBtn);
 		});
 
-		requestAnimationFrame(() => this.input?.inputEl.focus());
+		window.requestAnimationFrame(() => this.input?.inputEl.focus());
 	}
 
 	onClose(): void {
