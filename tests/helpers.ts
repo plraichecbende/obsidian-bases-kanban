@@ -22,6 +22,7 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
 (global as any).Node = dom.window.Node;
 (global as any).requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.window);
 (global as any).cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(dom.window);
+(global as any).activeDocument = dom.window.document;
 
 // Extend HTMLElement prototype with Obsidian-like methods
 const HTMLElementProto = dom.window.HTMLElement.prototype as any;
@@ -102,6 +103,57 @@ if (!HTMLElementProto.empty) {
 		while (this.firstChild) {
 			this.removeChild(this.firstChild);
 		}
+	};
+}
+
+const NodeProto = dom.window.Node.prototype as any;
+
+if (!NodeProto.instanceOf) {
+	NodeProto.instanceOf = function (type: any): boolean {
+		return this instanceof type;
+	};
+}
+
+const DocumentProto = dom.window.Document.prototype as any;
+
+if (!DocumentProto.createDiv) {
+	DocumentProto.createDiv = function (options?: { cls?: string; text?: string }): HTMLElement {
+		const el = dom.window.document.createElement('div');
+		if (options?.cls) el.className = options.cls;
+		if (options?.text) el.textContent = options.text;
+		return el;
+	};
+}
+
+if (!DocumentProto.createSpan) {
+	DocumentProto.createSpan = function (options?: { cls?: string; text?: string }): HTMLElement {
+		const el = dom.window.document.createElement('span');
+		if (options?.cls) el.className = options.cls;
+		if (options?.text) el.textContent = options.text;
+		return el;
+	};
+}
+
+if (!DocumentProto.createEl) {
+	DocumentProto.createEl = function (
+		tag: string,
+		options?: { cls?: string; text?: string; attr?: Record<string, string> },
+	): HTMLElement {
+		const el = dom.window.document.createElement(tag);
+		if (options?.cls) el.className = options.cls;
+		if (options?.text) el.textContent = options.text;
+		if (options?.attr) {
+			for (const [k, v] of Object.entries(options.attr)) el.setAttribute(k, v);
+		}
+		return el;
+	};
+}
+
+const EventProto = dom.window.Event.prototype as any;
+
+if (!EventProto.instanceOf) {
+	EventProto.instanceOf = function (type: any): boolean {
+		return this instanceof type;
 	};
 }
 

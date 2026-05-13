@@ -1,6 +1,10 @@
 // Mock obsidian module for testing
 // This provides the minimal interface needed for tests
 
+// Obsidian globals not present in Node.js
+(globalThis as any).activeWindow = globalThis;
+(globalThis as any).activeDocument = globalThis.document ?? { createTextNode: () => ({}) };
+
 export type BasesPropertyId = string;
 export type ViewOption = any;
 

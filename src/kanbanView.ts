@@ -118,7 +118,7 @@ export async function renderPropertyValue(
 	} else if (value instanceof ListValue) {
 		const len = value.length();
 		for (let i = 0; i < len; i++) {
-			if (i > 0) el.appendChild(document.createTextNode(', '));
+			if (i > 0) el.appendChild(activeDocument.createTextNode(', '));
 			const item = value.get(i);
 			if (!(item instanceof NullValue)) {
 				await renderPropertyValue(app, item, el, sourcePath, component);
@@ -127,7 +127,7 @@ export async function renderPropertyValue(
 	} else if (app) {
 		await renderCompactMarkdown(app, value.toString(), el, sourcePath, component);
 	} else {
-		el.appendChild(document.createTextNode(value.toString()));
+		el.appendChild(activeDocument.createTextNode(value.toString()));
 	}
 }
 
@@ -208,7 +208,7 @@ export class KanbanView extends BasesView {
 			const href = linkEl.getAttribute('data-href') || linkEl.getAttribute('href');
 			if (href && this.app) {
 				const cardEl = linkEl.closest(`[${DATA_ATTRIBUTES.ENTRY_PATH}]`);
-				const sourcePath = cardEl instanceof HTMLElement ? (cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) ?? '') : '';
+				const sourcePath = cardEl.instanceOf(HTMLElement) ? (cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) ?? '') : '';
 				void this.app.workspace.openLinkText(href, sourcePath, Keymap.isModEvent(evt));
 			}
 		});
@@ -216,22 +216,22 @@ export class KanbanView extends BasesView {
 		// Middle-click on internal links inside cards opens the linked note in a
 		// background tab — same convention as middle-clicking the card itself.
 		this.containerEl.on('auxclick', 'a.internal-link', (evt, linkEl) => {
-			if (!(evt instanceof MouseEvent) || evt.button !== 1) return;
+			if (!evt.instanceOf(MouseEvent) || evt.button !== 1) return;
 			evt.preventDefault();
 			const href = linkEl.getAttribute('data-href') || linkEl.getAttribute('href');
 			if (!href || !this.app) return;
 			const cardEl = linkEl.closest(`[${DATA_ATTRIBUTES.ENTRY_PATH}]`);
-			const sourcePath = cardEl instanceof HTMLElement ? (cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) ?? '') : '';
+			const sourcePath = cardEl.instanceOf(HTMLElement) ? (cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) ?? '') : '';
 			const file = this.app.metadataCache.getFirstLinkpathDest(href, sourcePath);
 			if (file) this.openInBackgroundTab(file);
 		});
 
 		this.containerEl.on('mouseover', 'a.internal-link', (evt, linkEl) => {
-			if (!(evt instanceof MouseEvent)) return;
+			if (!evt.instanceOf(MouseEvent)) return;
 			const href = linkEl.getAttribute('data-href') || linkEl.getAttribute('href');
 			if (!href) return;
 			const cardEl = linkEl.closest(`[${DATA_ATTRIBUTES.ENTRY_PATH}]`);
-			const sourcePath = cardEl instanceof HTMLElement ? (cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) ?? '') : '';
+			const sourcePath = cardEl.instanceOf(HTMLElement) ? (cardEl.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) ?? '') : '';
 			this.triggerHoverPreview(href, sourcePath, evt, linkEl);
 		});
 
@@ -621,7 +621,7 @@ export class KanbanView extends BasesView {
 		laneEntries: Map<string, BasesEntry[]>,
 		orderedColumnValues: string[],
 	): HTMLElement {
-		const laneEl = document.createElement('div');
+		const laneEl = activeDocument.createDiv();
 		laneEl.className = CSS_CLASSES.SWIMLANE;
 		laneEl.setAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE, laneValue);
 		const isCollapsed = this._prefs.collapsedLanes.has(laneValue);
@@ -714,11 +714,11 @@ export class KanbanView extends BasesView {
 	}
 
 	private handleSwimlaneColumnDrop(evt: Sortable.SortableEvent): void {
-		if (!this._prefsPropertyId || !(evt.to instanceof HTMLElement)) return;
+		if (!this._prefsPropertyId || !evt.to.instanceOf(HTMLElement)) return;
 
 		const order = Array.from(evt.to.children)
 			.filter(
-				(child): child is HTMLElement => child instanceof HTMLElement && child.classList.contains(CSS_CLASSES.COLUMN),
+				(child): child is HTMLElement => child.instanceOf(HTMLElement) && child.classList.contains(CSS_CLASSES.COLUMN),
 			)
 			.map((col) => col.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE))
 			.filter((v): v is string => v !== null);
@@ -998,7 +998,7 @@ export class KanbanView extends BasesView {
 		if (!this._dragging) {
 			const pathToCard = new Map<string, Element>();
 			body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
-				const path = card instanceof HTMLElement ? card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null;
+				const path = card.instanceOf(HTMLElement) ? card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null;
 				if (path) pathToCard.set(path, card);
 			});
 			newEntries.forEach((entry) => {
@@ -1131,7 +1131,7 @@ export class KanbanView extends BasesView {
 		entries: BasesEntry[],
 		options: { showRemoveButton?: boolean; swimlaneValue?: string | null } = {},
 	): HTMLElement {
-		const columnEl = document.createElement('div');
+		const columnEl = activeDocument.createDiv();
 		columnEl.className = CSS_CLASSES.COLUMN;
 		columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_VALUE, value);
 
@@ -1226,7 +1226,7 @@ export class KanbanView extends BasesView {
 	}
 
 	private createCard(entry: BasesEntry): HTMLElement {
-		const cardEl = document.createElement('div');
+		const cardEl = activeDocument.createDiv();
 		cardEl.className = CSS_CLASSES.CARD;
 		const filePath = entry.file.path;
 		cardEl.setAttribute(DATA_ATTRIBUTES.ENTRY_PATH, filePath);
@@ -1320,12 +1320,12 @@ export class KanbanView extends BasesView {
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;
 
-		const popover = document.createElement('div');
+		const popover = activeDocument.createDiv();
 		popover.className = CSS_CLASSES.COLUMN_COLOR_POPOVER;
 
 		const currentColor = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
 
-		const noneSwatch = document.createElement('div');
+		const noneSwatch = activeDocument.createDiv();
 		noneSwatch.className = `${CSS_CLASSES.COLUMN_COLOR_SWATCH} ${CSS_CLASSES.COLUMN_COLOR_NONE}`;
 		if (!currentColor) noneSwatch.classList.add(CSS_CLASSES.COLUMN_COLOR_SWATCH_ACTIVE);
 		noneSwatch.title = 'No color';
@@ -1339,7 +1339,7 @@ export class KanbanView extends BasesView {
 		popover.appendChild(noneSwatch);
 
 		for (const color of COLOR_PALETTE) {
-			const swatch = document.createElement('div');
+			const swatch = activeDocument.createDiv();
 			swatch.className = CSS_CLASSES.COLUMN_COLOR_SWATCH;
 			swatch.style.background = color.cssVar;
 			swatch.title = color.name;
@@ -1357,21 +1357,21 @@ export class KanbanView extends BasesView {
 		const rect = anchorEl.getBoundingClientRect();
 		popover.style.top = `${rect.bottom + 4}px`;
 		popover.style.left = `${rect.left}px`;
-		document.body.appendChild(popover);
+		activeDocument.body.appendChild(popover);
 		this.activeColorPicker = popover;
 
 		const dismiss = (e: MouseEvent) => {
 			if (e.target instanceof Node && !popover.contains(e.target) && e.target !== anchorEl) {
 				popover.remove();
 				this.activeColorPicker = null;
-				document.removeEventListener('click', dismiss);
+				activeDocument.removeEventListener('click', dismiss);
 			}
 		};
-		document.addEventListener('click', dismiss);
+		activeDocument.addEventListener('click', dismiss);
 	}
 
 	private createAddButton(columnValue: string, swimlaneValue: string | null): HTMLElement {
-		const btn = document.createElement('div');
+		const btn = activeDocument.createDiv();
 		btn.className = CSS_CLASSES.COLUMN_ADD_BTN;
 		btn.setAttribute(
 			'aria-label',
@@ -1486,20 +1486,20 @@ export class KanbanView extends BasesView {
 
 	private closeNativeNewItemPopover(): void {
 		const closePopovers = () => {
-			const popovers = Array.from(document.querySelectorAll<HTMLElement>('.bases-new-item-popover'));
+			const popovers = Array.from(activeDocument.querySelectorAll<HTMLElement>('.bases-new-item-popover'));
 			if (popovers.length === 0) return;
 
-			document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-			document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+			activeDocument.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+			activeDocument.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 			popovers.forEach((popover) => {
 				popover.remove();
 			});
 		};
 
 		closePopovers();
-		globalThis.requestAnimationFrame(closePopovers);
+		activeWindow.requestAnimationFrame(closePopovers);
 		for (const delay of [50, 250, 1000]) {
-			globalThis.setTimeout(closePopovers, delay);
+			activeWindow.setTimeout(closePopovers, delay);
 		}
 	}
 
@@ -1553,7 +1553,7 @@ export class KanbanView extends BasesView {
 	}
 
 	private createRemoveButton(value: string, columnEl: HTMLElement): HTMLElement {
-		const btn = document.createElement('div');
+		const btn = activeDocument.createDiv();
 		btn.className = CSS_CLASSES.COLUMN_REMOVE_BTN;
 		btn.setAttribute('aria-label', `Remove column: ${value}`);
 		btn.setAttribute('role', 'button');
@@ -1603,7 +1603,7 @@ export class KanbanView extends BasesView {
 			chosenClass: CSS_CLASSES.CARD_CHOSEN,
 			onStart: (evt: Sortable.SortableEvent) => {
 				this._dragging = true;
-				if (evt.item instanceof HTMLElement) evt.item.classList.remove(CSS_CLASSES.CARD_HOVER);
+				if (evt.item.instanceOf(HTMLElement)) evt.item.classList.remove(CSS_CLASSES.CARD_HOVER);
 			},
 			onEnd: (evt: Sortable.SortableEvent) => {
 				this._dragging = false;
@@ -1615,7 +1615,7 @@ export class KanbanView extends BasesView {
 	}
 
 	private async handleCardDrop(evt: Sortable.SortableEvent): Promise<void> {
-		if (!(evt.item instanceof HTMLElement)) {
+		if (!evt.item.instanceOf(HTMLElement)) {
 			console.warn('Card element is not an HTMLElement:', evt.item);
 			return;
 		}
@@ -1632,13 +1632,14 @@ export class KanbanView extends BasesView {
 		const oldColumnEl = evt.from.closest(columnSelector);
 		const newColumnEl = evt.to.closest(columnSelector);
 
-		if (!newColumnEl || !(newColumnEl instanceof HTMLElement)) {
+		if (!newColumnEl || !newColumnEl.instanceOf(HTMLElement)) {
 			console.warn('Could not find new column element');
 			return;
 		}
 
-		const oldColumnValue =
-			oldColumnEl instanceof HTMLElement ? oldColumnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE) : null;
+		const oldColumnValue = oldColumnEl?.instanceOf(HTMLElement)
+			? oldColumnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE)
+			: null;
 		const newColumnValue = newColumnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
 
 		if (!newColumnValue) {
@@ -1655,14 +1656,16 @@ export class KanbanView extends BasesView {
 		const swimlaneSelector = `.${CSS_CLASSES.SWIMLANE}`;
 		const oldLaneEl = evt.from.closest(swimlaneSelector);
 		const newLaneEl = evt.to.closest(swimlaneSelector);
-		const swimlaneActive = newLaneEl instanceof HTMLElement;
-		const oldLaneValue = oldLaneEl instanceof HTMLElement ? oldLaneEl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) : null;
+		const swimlaneActive = newLaneEl?.instanceOf(HTMLElement) ?? false;
+		const oldLaneValue = oldLaneEl?.instanceOf(HTMLElement)
+			? oldLaneEl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE)
+			: null;
 		const newLaneValue = swimlaneActive ? newLaneEl.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) : null;
 
 		// Helper: read card paths from a column body element
 		const getColumnPaths = (bodyEl: Element): string[] =>
 			Array.from(bodyEl.querySelectorAll(`.${CSS_CLASSES.CARD}`))
-				.map((c) => (c instanceof HTMLElement ? c.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null))
+				.map((c) => (c.instanceOf(HTMLElement) ? c.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null))
 				.filter((p): p is string => p !== null);
 
 		const oldKey = this.cardOrderKey(oldLaneValue, oldColumnValue ?? '');
@@ -1685,7 +1688,7 @@ export class KanbanView extends BasesView {
 
 		// Cross-cell drop: capture DOM order for both source and destination
 		if (!sortActive) {
-			if (oldColumnEl instanceof HTMLElement && oldColumnValue) {
+			if (oldColumnEl?.instanceOf(HTMLElement) && oldColumnValue) {
 				const oldBody = oldColumnEl.querySelector(`.${CSS_CLASSES.COLUMN_BODY}`);
 				if (oldBody) this._prefs.cardOrders[oldKey] = getColumnPaths(oldBody);
 			}

@@ -9,14 +9,14 @@ export interface DebouncedFn<T extends (...args: unknown[]) => void> {
  * pending invocation (e.g. on cleanup).
  */
 export function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number): DebouncedFn<T> {
-	let timer: ReturnType<typeof setTimeout> | null = null;
+	let timer: number | null = null;
 
 	const debounced = Object.assign(
 		function (...args: Parameters<T>): void {
 			if (timer !== null) {
-				clearTimeout(timer);
+				activeWindow.clearTimeout(timer);
 			}
-			timer = setTimeout(() => {
+			timer = activeWindow.setTimeout(() => {
 				timer = null;
 				fn(...args);
 			}, delay);
@@ -24,7 +24,7 @@ export function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: n
 		{
 			cancel(): void {
 				if (timer !== null) {
-					clearTimeout(timer);
+					activeWindow.clearTimeout(timer);
 					timer = null;
 				}
 			},
