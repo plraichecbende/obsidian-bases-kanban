@@ -1,17 +1,5 @@
-import type { App, BasesEntry, BasesPropertyId, Component, HoverPopover, QueryController, ViewOption } from 'obsidian';
-import {
-	BasesView,
-	HTMLValue,
-	Keymap,
-	ListValue,
-	MarkdownRenderer,
-	NullValue,
-	Notice,
-	normalizePath,
-	parsePropertyId,
-	sanitizeHTMLToDom,
-	setIcon,
-} from 'obsidian';
+import type { BasesEntry, BasesPropertyId, HoverPopover, QueryController, ViewOption } from 'obsidian';
+import { BasesView, Keymap, NullValue, Notice, normalizePath, parsePropertyId, setIcon } from 'obsidian';
 import type { TFile } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
@@ -70,65 +58,6 @@ export function isCardOrders(value: unknown): value is Record<string, Record<str
 
 export function isCollapsedLanes(value: unknown): value is Record<string, string[]> {
 	return isStringArrayRecord(value);
-}
-
-/**
- * Wraps MarkdownRenderer.render() and strips the outer <p> it emits for
- * inline content, matching the pattern used by Dataview (blacksmithgu/obsidian-dataview,
- * src/ui/render.ts — renderCompactMarkdown).
- */
-async function renderCompactMarkdown(
-	app: App,
-	markdown: string,
-	el: HTMLElement,
-	sourcePath: string,
-	component: Component,
-): Promise<void> {
-	const span = el.createSpan();
-	await MarkdownRenderer.render(app, markdown, span, sourcePath, component);
-	const p = span.querySelector(':scope > p');
-	if (span.children.length === 1 && p) {
-		while (p.firstChild) span.appendChild(p.firstChild);
-		span.removeChild(p);
-	}
-}
-
-/**
- * Render an Obsidian Value into a container element with type-aware dispatch.
- *
- * Dispatch order (most-specific subclass first to avoid StringValue catching
- * HTMLValue/LinkValue before they are checked):
- *   HTMLValue  → sanitizeHTMLToDom (raw HTML from the html("") formula function)
- *   ListValue  → comma-separated spans, each item rendered recursively
- *   everything else → MarkdownRenderer.render via renderCompactMarkdown
- *                     (handles wikilinks, tags, plain text, dates, booleans …)
- *
- * Value class sources: https://github.com/obsidianmd/obsidian-api/blob/master/obsidian.d.ts (@since 1.10.0)
- * Dataview dispatch reference: https://github.com/blacksmithgu/obsidian-dataview/blob/master/src/ui/render.ts
- */
-export async function renderPropertyValue(
-	app: App | undefined,
-	value: { toString(): string },
-	el: HTMLElement,
-	sourcePath: string,
-	component: Component,
-): Promise<void> {
-	if (value instanceof HTMLValue) {
-		el.appendChild(sanitizeHTMLToDom(value.toString()));
-	} else if (value instanceof ListValue) {
-		const len = value.length();
-		for (let i = 0; i < len; i++) {
-			if (i > 0) el.appendChild(el.doc.createTextNode(', '));
-			const item = value.get(i);
-			if (!(item instanceof NullValue)) {
-				await renderPropertyValue(app, item, el, sourcePath, component);
-			}
-		}
-	} else if (app) {
-		await renderCompactMarkdown(app, value.toString(), el, sourcePath, component);
-	} else {
-		el.appendChild(el.doc.createTextNode(value.toString()));
-	}
 }
 
 export class KanbanView extends BasesView {
@@ -1205,12 +1134,12 @@ export class KanbanView extends BasesView {
 
 		const titleValue = entry.getValue(this.cardTitlePropertyId);
 
-		if (titleValue === null || titleValue instanceof NullValue) {
+		if (!titleValue || titleValue instanceof NullValue) {
 			titleEl.textContent = entry.file.basename;
 			return;
 		}
 
-		void renderPropertyValue(this.app, titleValue, titleEl, filePath, this);
+		titleValue.renderTo(titleEl, this.app.renderContext);
 	}
 
 	/**
@@ -1222,10 +1151,10 @@ export class KanbanView extends BasesView {
 	private renderCardCover(coverEl: HTMLElement, entry: BasesEntry, filePath: string): boolean {
 		if (!this.imagePropertyId) return false;
 		const value = entry.getValue(this.imagePropertyId);
-		if (value === null || value instanceof NullValue) return false;
+		if (!value || value instanceof NullValue) return false;
 
 		const raw = value.toString().trim();
-		if (!raw || raw === 'null') return false;
+		if (!raw) return false;
 
 		if (/^https?:\/\//i.test(raw)) {
 			coverEl.createEl('img', { attr: { src: raw, alt: '' } });
@@ -1276,9 +1205,8 @@ export class KanbanView extends BasesView {
 		for (const propertyId of order) {
 			if (propertyId === this.groupByPropertyId) continue;
 			const value = entry.getValue(propertyId);
-			if (value === null) continue;
-			const valueStr = value.toString().trim();
-			if (!valueStr || valueStr === 'null') continue;
+			if (!value || value instanceof NullValue) continue;
+			if (!value.toString().trim()) continue;
 			const label = this.config?.getDisplayName(propertyId) ?? propertyId;
 			const propertyEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_PROPERTY });
 			propertyEl.setAttribute('data-label', propertyId);
@@ -1292,7 +1220,7 @@ export class KanbanView extends BasesView {
 			const valueEl = propertyEl.createSpan({
 				cls: CSS_CLASSES.CARD_PROPERTY_VALUE,
 			});
-			void renderPropertyValue(this.app, value, valueEl, filePath, this);
+			value.renderTo(valueEl, this.app.renderContext);
 		}
 
 		// JS-managed hover: mouseenter/mouseleave instead of CSS :hover so the

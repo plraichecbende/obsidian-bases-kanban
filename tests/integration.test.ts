@@ -13,6 +13,7 @@ import {
 	setupKanbanViewWithApp,
 	triggerDataUpdate,
 } from './helpers.ts';
+import { StringValue } from './mocks/obsidian.ts';
 import {
 	createEntriesWithStatus,
 	createEntriesWithMixedProperties,
@@ -124,7 +125,7 @@ describe('Integration Tests - Full Workflow', () => {
 		// and forces render → patchBoard (group-by property unchanged).
 		const entry = entries[0];
 		(entry as any).getValue = (propId: string) => {
-			if (propId === PROPERTY_STATUS) return 'Doing';
+			if (propId === PROPERTY_STATUS) return new StringValue('Doing');
 			return null;
 		};
 		triggerDataUpdate(view);
@@ -159,7 +160,7 @@ describe('Integration Tests - Full Workflow', () => {
 		const entry = entries[0];
 		(entry as any).getValue = (propId: string) => {
 			if (propId === PROPERTY_STATUS) {
-				return 'Doing'; // Changed from 'To Do'
+				return new StringValue('Doing'); // Changed from 'To Do'
 			}
 			return null;
 		};

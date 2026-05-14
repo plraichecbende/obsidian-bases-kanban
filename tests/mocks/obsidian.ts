@@ -61,6 +61,14 @@ export interface App {
 		getAbstractFileByPath(path: string): TFile | null;
 		getResourcePath(file: { path: string }): string;
 	};
+	renderContext: RenderContext;
+}
+
+// Real class: RenderContext implements HoverParent. Plugins don't construct it;
+// they consume the singleton at App.renderContext. The mock is just an opaque
+// token threaded through Value.renderTo() for parity with the production API.
+export class RenderContext {
+	hoverPopover: unknown = null;
 }
 
 export abstract class BasesView {
@@ -145,6 +153,17 @@ export function setIcon(parent: HTMLElement, iconId: string): void {
 export abstract class Value {
 	abstract toString(): string;
 	abstract isTruthy(): boolean;
+	equals(_other: this): boolean {
+		return false;
+	}
+	looseEquals(_other: Value): boolean {
+		return false;
+	}
+	// Real signature: renderTo(el: HTMLElement, ctx: RenderContext): void
+	// Default mock implementation falls back to text; subclasses override.
+	renderTo(el: HTMLElement, _ctx: RenderContext): void {
+		el.appendChild(document.createTextNode(this.toString()));
+	}
 }
 
 export abstract class NotNullValue extends Value {}
@@ -170,15 +189,71 @@ export abstract class PrimitiveValue<T> extends NotNullValue {
 	}
 }
 
-export class StringValue extends PrimitiveValue<string> {}
+// Real class: StringValue extends PrimitiveValue<string>.
+// renderTo() mirrors what Obsidian's built-in renderer does for plain string
+// properties: bracketed wikilinks become internal-link anchors, everything else
+// renders as text. This keeps the wikilink-in-frontmatter behavior the kanban
+// has always had once we route all Value subclasses through renderTo.
+export class StringValue extends PrimitiveValue<string> {
+	renderTo(el: HTMLElement, _ctx: RenderContext): void {
+		const raw = this.value;
+		const wikiMatch = raw.match(/^\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]$/);
+		if (wikiMatch) {
+			const target = wikiMatch[1];
+			const a = document.createElement('a');
+			a.className = 'internal-link';
+			a.setAttribute('data-href', target);
+			a.setAttribute('href', target);
+			a.textContent = wikiMatch[2] ?? target;
+			el.appendChild(a);
+			return;
+		}
+		el.appendChild(document.createTextNode(raw));
+	}
+}
 
 // Wraps an HTML string produced by the html("") formula function.
 // Real class: HTMLValue extends StringValue — toString() returns the raw HTML string.
-export class HTMLValue extends StringValue {}
+// renderTo() parses the HTML into DOM (in production, Obsidian sanitizes via
+// DOMPurify; this mock uses innerHTML directly — safe since tests own all input).
+export class HTMLValue extends StringValue {
+	renderTo(el: HTMLElement, _ctx: RenderContext): void {
+		const div = document.createElement('div');
+		div.innerHTML = this.value;
+		while (div.firstChild) el.appendChild(div.firstChild);
+	}
+}
 
 // Wraps a wikilink string such as "[[Note Name]]".
 // Real class: LinkValue extends StringValue — includes static parseFromString().
-export class LinkValue extends StringValue {}
+// The production class also carries the display text passed to link(url, display)
+// but exposes no public accessor for it; renderTo() is the only way to surface it.
+// The mock takes display as a second constructor arg so tests can assert the rendered
+// label without reaching into private state.
+export class LinkValue extends StringValue {
+	private display: string | null;
+	constructor(value: string, display: string | null = null) {
+		super(value);
+		this.display = display;
+	}
+	renderTo(el: HTMLElement, _ctx: RenderContext): void {
+		const raw = this.value;
+		const wikiMatch = raw.match(/^\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]$/);
+		const a = document.createElement('a');
+		if (wikiMatch) {
+			const target = wikiMatch[1];
+			const aliasLabel = wikiMatch[2] ?? null;
+			a.className = 'internal-link';
+			a.setAttribute('data-href', target);
+			a.setAttribute('href', target);
+			a.textContent = this.display ?? aliasLabel ?? target;
+		} else {
+			a.setAttribute('href', raw);
+			a.textContent = this.display ?? raw;
+		}
+		el.appendChild(a);
+	}
+}
 
 export class TagValue extends StringValue {}
 export class UrlValue extends StringValue {}
@@ -220,35 +295,6 @@ export class ListValue extends NotNullValue {
 	}
 	get(index: number): Value {
 		return this.items[index] ?? new NullValue();
-	}
-}
-
-// Source: sanitizeHTMLToDom — https://github.com/obsidianmd/obsidian-api/blob/master/obsidian.d.ts
-// Real impl sanitizes the string through Obsidian's DOMPurify instance before parsing.
-// This mock uses innerHTML directly — safe enough for tests since we control all input.
-export function sanitizeHTMLToDom(html: string): DocumentFragment {
-	const fragment = document.createDocumentFragment();
-	const div = document.createElement('div');
-	div.innerHTML = html;
-	while (div.firstChild) fragment.appendChild(div.firstChild);
-	return fragment;
-}
-
-export class MarkdownRenderer {
-	static render(
-		_app: unknown,
-		markdown: string,
-		el: HTMLElement,
-		_sourcePath: string,
-		_component: unknown,
-	): Promise<void> {
-		const p = document.createElement('p');
-		p.innerHTML = markdown.replace(/\[\[([^\]]+)\]\]/g, (_, target: string) => {
-			const escaped = target.replace(/"/g, '&quot;');
-			return `<a class="internal-link" data-href="${escaped}" href="${escaped}">${target}</a>`;
-		});
-		el.appendChild(p);
-		return Promise.resolve();
 	}
 }
 

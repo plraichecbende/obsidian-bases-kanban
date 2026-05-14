@@ -3,6 +3,7 @@ import { JSDOM } from 'jsdom';
 import type { App, BasesEntry, BasesPropertyId, QueryController, TFile } from 'obsidian';
 import type Sortable from 'sortablejs';
 import { DEBOUNCE_DELAY } from '../src/constants.ts';
+import { BooleanValue, NumberValue, StringValue } from './mocks/obsidian.ts';
 
 // Setup jsdom environment
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
@@ -194,16 +195,13 @@ export function createMockBasesEntry(file: TFile, properties: Record<string, any
 		getValue: (propertyId: BasesPropertyId) => {
 			const value = properties[propertyId] ?? null;
 			if (value === null) return null;
-
-			// Return a mock Value object to match Obsidian Bases API
-			// We only use toString() in our code, but include other required methods for type compatibility
-			return {
-				toString: () => String(value),
-				isTruthy: () => !!value,
-				equals: () => false, // Stub implementation
-				looseEquals: () => false, // Stub implementation
-				renderTo: () => {}, // Stub implementation
-			} as any; // Cast to any to satisfy Value interface requirements
+			// Wrap raw primitives in the matching Value subclass so renderPropertyValue
+			// (which calls value.renderTo) operates against the same hierarchy used in
+			// production. Tests that need a richer Value (LinkValue, HTMLValue, etc.)
+			// can construct fixtures directly via tests/fixtures.ts.
+			if (typeof value === 'number') return new NumberValue(value) as any;
+			if (typeof value === 'boolean') return new BooleanValue(value) as any;
+			return new StringValue(String(value)) as any;
 		},
 		getProperty: (propertyId: BasesPropertyId) => {
 			return properties[propertyId] ?? null;
@@ -325,6 +323,7 @@ export function createMockApp(imageFiles: Record<string, { path: string }> = {})
 			getAbstractFileByPath: (path: string) => markdownFiles.find((file) => file.path === path) ?? null,
 			getResourcePath: (file: { path: string }) => `app://fake/${file.path}`,
 		} as any,
+		renderContext: { hoverPopover: null } as any,
 	} as any;
 }
 

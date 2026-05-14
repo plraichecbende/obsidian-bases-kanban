@@ -152,6 +152,12 @@ export const VALUE_PLAIN_STRING = new StringValue('plain text');
 export const VALUE_WIKILINK_STRING = new StringValue('[[Meeting Notes]]');
 export const VALUE_HTML = new HTMLValue('<progress value="50" max="100"></progress>');
 export const VALUE_LINK = new LinkValue('[[Project Alpha]]');
+// link("https://google.com", "Open Google") — external URL with display label.
+export const VALUE_LINK_EXTERNAL_WITH_DISPLAY = new LinkValue('https://google.com', 'Open Google');
+// link("file:///D:/path/to/file.txt", "Open file.txt") — file:// URL with display label.
+// The markdown autolinker drops file:// schemes, so this case is the strongest
+// motivation for routing LinkValue through Value.renderTo.
+export const VALUE_LINK_FILE_URL_WITH_DISPLAY = new LinkValue('file:///D:/path/to/file.txt', 'Open file.txt');
 export const VALUE_NUMBER = new NumberValue(42);
 export const VALUE_BOOLEAN = new BooleanValue(true);
 export const VALUE_DATE = new DateValue(new Date('2026-04-08'));
