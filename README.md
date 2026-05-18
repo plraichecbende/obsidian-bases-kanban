@@ -61,12 +61,11 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 3. Select the property you want to use for columns (e.g., "Status") in the "Group by" option
 4. Your notes will be automatically organized into columns based on the selected property's values
 5. Drag cards between columns to update the property value
-6. Click the `+` button in a column header to create a new card with that column value already set
-7. Optionally, set "New card folder" to choose where newly created cards should be saved
-8. Click any card to open the corresponding note (Cmd/Ctrl+click to open in new tab)
-9. Drag columns by their handle (⋮⋮) to reorder them - your preferred order will be saved
-10. Optionally, select a property in "Swimlane by" to split the board into horizontal lanes
-11. Optionally, select a property in "Card title property" to display that property's value as each card's title instead of the file name
+6. Optionally, set "Add card to column folder" to a folder path — this enables a `+` button in each column header for quickly creating cards with that column's value pre-filled
+7. Click any card to open the corresponding note (Cmd/Ctrl+click to open in new tab)
+8. Drag columns by their handle (⋮⋮) to reorder them - your preferred order will be saved
+9. Optionally, select a property in "Swimlane by" to split the board into horizontal lanes
+10. Optionally, select a property in "Card title property" to display that property's value as each card's title instead of the file name
 
 ### Example
 
@@ -74,7 +73,7 @@ If your base has a "Status" property with values "To Do", "Doing", and "Done":
 - Select "Status" in the "Group by" dropdown
 - Three columns will appear: "To Do", "Doing", and "Done" (plus an "Uncategorized" column for notes without a status)
 - Drag cards between columns to change their status
-- Click a column's `+` button to create a new note with that status
+- If "Add card to column folder" is configured, click the `+` button to create a new note with that status in that folder
 - Click any card to open the note (Cmd/Ctrl+click to open in new tab)
 - Drag columns by their handle to reorder them - your order preference will be remembered
 

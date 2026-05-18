@@ -263,9 +263,6 @@ describe('Data Rendering - Column Rendering', () => {
 		const count = header?.querySelector('.obk-column-count');
 		assert.ok(count, 'Column count should exist');
 
-		const addBtn = header?.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`);
-		assert.ok(addBtn, 'Column quick add button should exist');
-
 		const body = firstColumn.querySelector('.obk-column-body');
 		assert.ok(body, 'Column body should exist');
 		assert.ok(body?.getAttribute('data-sortable-container'), 'Column body should have data-sortable-container attribute');
@@ -276,6 +273,7 @@ describe('Data Rendering - Column Rendering', () => {
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'cards');
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -289,7 +287,7 @@ describe('Data Rendering - Column Rendering', () => {
 		assert.ok(addBtn?.querySelector('[data-icon="plus"]'), 'Quick add button should render the plus icon');
 	});
 
-	test('quick add creates a file with the selected column property', async () => {
+	test('column quick add button does not exist when no folder is configured', () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
@@ -299,15 +297,13 @@ describe('Data Rendering - Column Rendering', () => {
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
 
-		await (view as any).createQuickAddCard('New Task', 'Doing', null);
-
-		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'New Task', frontmatter: { status: 'Doing' } },
-		]);
+		const doingColumn = view.containerEl.querySelector('[data-column-value="Doing"]');
+		const addBtn = doingColumn?.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`);
+		assert.strictEqual(addBtn, null, 'Column should not have a quick add button without folder configured');
 	});
 
-	test('quick add omits the column property for Uncategorized', async () => {
-		const entries = createEntriesWithEmptyValues();
+	test('quick add button appears after full rebuild when folder is configured', () => {
+		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
@@ -316,9 +312,83 @@ describe('Data Rendering - Column Rendering', () => {
 		setupKanbanViewWithApp(view, app);
 		triggerDataUpdate(view);
 
+		// No button yet
+		let doingColumn = view.containerEl.querySelector('[data-column-value="Doing"]');
+		assert.strictEqual(doingColumn?.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`), null);
+
+		// Configure folder and re-render — folder change triggers a full rebuild
+		controller.config.set('quickAddFolder', 'cards');
+		triggerDataUpdate(view);
+
+		doingColumn = view.containerEl.querySelector('[data-column-value="Doing"]');
+		assert.ok(
+			doingColumn?.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`),
+			'Add button should appear after folder is configured',
+		);
+	});
+
+	test('quick add button is removed after full rebuild when folder is cleared', () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'cards');
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		// Button present
+		let doingColumn = view.containerEl.querySelector('[data-column-value="Doing"]');
+		assert.ok(
+			doingColumn?.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`),
+			'Add button should be present when folder is configured',
+		);
+
+		// Clear folder and re-render — folder change triggers a full rebuild
+		controller.config.set('quickAddFolder', null);
+		triggerDataUpdate(view);
+
+		doingColumn = view.containerEl.querySelector('[data-column-value="Doing"]');
+		assert.strictEqual(
+			doingColumn?.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`),
+			null,
+			'Add button should be removed after folder is cleared',
+		);
+	});
+
+	test('quick add creates a file with the selected column property', async () => {
+		const entries = createEntriesWithStatus();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'cards');
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		await (view as any).createQuickAddCard('New Task', 'Doing', null);
+
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [
+			{ baseFileName: 'cards/New Task', frontmatter: { status: 'Doing' } },
+		]);
+	});
+
+	test('quick add omits the column property for Uncategorized', async () => {
+		const entries = createEntriesWithEmptyValues();
+		controller = createMockQueryController(entries, TEST_PROPERTIES);
+		controller.app = app;
+		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'cards');
+
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
 		await (view as any).createQuickAddCard('New Task', UNCATEGORIZED_LABEL, null);
 
-		assert.deepStrictEqual((view as any).createFileForViewCalls, [{ baseFileName: 'New Task', frontmatter: {} }]);
+		assert.deepStrictEqual((view as any).createFileForViewCalls, [{ baseFileName: 'cards/New Task', frontmatter: {} }]);
 	});
 
 	test('quick add sets both column and swimlane properties when used inside a lane', async () => {
@@ -330,6 +400,7 @@ describe('Data Rendering - Column Rendering', () => {
 			if (key === 'swimlaneByProperty') return PROPERTY_PRIORITY;
 			return null;
 		};
+		controller.config.set('quickAddFolder', 'cards');
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -339,7 +410,7 @@ describe('Data Rendering - Column Rendering', () => {
 
 		assert.deepStrictEqual((view as any).createFileForViewCalls, [
 			{
-				baseFileName: 'New Lane Task',
+				baseFileName: 'cards/New Lane Task',
 				frontmatter: { status: 'Doing', priority: 'High' },
 			},
 		]);
@@ -367,35 +438,12 @@ describe('Data Rendering - Column Rendering', () => {
 		assert.deepStrictEqual(app.fileManager.renameFile.calls, []);
 	});
 
-	test('quick add creates file in active file folder when no folder is configured', async () => {
-		const entries = createEntriesWithStatus();
-
-		controller = createMockQueryController(entries, TEST_PROPERTIES);
-		controller.app = app;
-		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
-
-		(app.workspace as any).getActiveFile = () =>
-			createMockTFile('projects/work.base', 'work', {
-				path: 'projects',
-				name: 'projects',
-			});
-
-		const view = new KanbanView(controller, scrollEl);
-		setupKanbanViewWithApp(view, app);
-		triggerDataUpdate(view);
-
-		await (view as any).createQuickAddCard('New Task', 'Doing', null);
-
-		assert.deepStrictEqual((view as any).createFileForViewCalls, [
-			{ baseFileName: 'projects/New Task', frontmatter: { status: 'Doing' } },
-		]);
-	});
-
 	test('quick add closes the native Base new item popover', async () => {
 		const entries = createEntriesWithStatus();
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'cards');
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);
@@ -415,6 +463,7 @@ describe('Data Rendering - Column Rendering', () => {
 		controller = createMockQueryController(entries, TEST_PROPERTIES);
 		controller.app = app;
 		controller.config.getAsPropertyId = () => PROPERTY_STATUS;
+		controller.config.set('quickAddFolder', 'cards');
 
 		const view = new KanbanView(controller, scrollEl);
 		setupKanbanViewWithApp(view, app);

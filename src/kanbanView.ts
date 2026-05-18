@@ -96,6 +96,7 @@ export class KanbanView extends BasesView {
 	private _lastImageFit: string | undefined = undefined;
 	private _lastImageAspectRatio: number | undefined = undefined;
 	private _lastSwimlanePropertyId: BasesPropertyId | null | undefined = undefined;
+	private _lastQuickAddFolder: string | null | undefined = undefined;
 	private _cardFingerprints: Map<string, string> = new Map();
 	private _deferredSortableListeners: Map<string, { el: HTMLElement; handler: () => void }> = new Map();
 
@@ -446,6 +447,10 @@ export class KanbanView extends BasesView {
 			const swimlanePropertyChanged = currentSwimlanePropertyId !== this._lastSwimlanePropertyId;
 			this._lastSwimlanePropertyId = currentSwimlanePropertyId;
 
+			const currentQuickAddFolder = this.getQuickAddFolder();
+			const quickAddFolderChanged = currentQuickAddFolder !== this._lastQuickAddFolder;
+			this._lastQuickAddFolder = currentQuickAddFolder;
+
 			const existingBoard = this.containerEl.querySelector<HTMLElement>(`.${CSS_CLASSES.BOARD}`);
 			const optionsChanged =
 				orderChanged ||
@@ -454,7 +459,8 @@ export class KanbanView extends BasesView {
 				imagePropertyChanged ||
 				imageFitChanged ||
 				imageAspectRatioChanged ||
-				swimlanePropertyChanged;
+				swimlanePropertyChanged ||
+				quickAddFolderChanged;
 
 			const lanes = new Map<string | null, Map<string, BasesEntry[]>>();
 			if (groupedByLane) {
@@ -910,6 +916,17 @@ export class KanbanView extends BasesView {
 			existingRemoveBtn.remove();
 		}
 
+		// Sync add button: present only when quickAddFolder is configured
+		const existingAddBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`) ?? null;
+		const hasFolder = !!this.getQuickAddFolder();
+		if (headerEl && columnValue && hasFolder && !existingAddBtn) {
+			const swimlaneEl = columnEl.closest<HTMLElement>(`[${DATA_ATTRIBUTES.SWIMLANE_VALUE}]`);
+			const swimlaneValue = swimlaneEl?.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) ?? null;
+			headerEl.appendChild(this.createAddButton(columnValue, swimlaneValue));
+		} else if (!hasFolder && existingAddBtn) {
+			existingAddBtn.remove();
+		}
+
 		// Remove cards whose entry is no longer in this column
 		const newPaths = new Set(newEntries.map((e) => e.file.path));
 		body.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.CARD}`).forEach((card) => {
@@ -1107,7 +1124,9 @@ export class KanbanView extends BasesView {
 			text: `${entries.length}`,
 			cls: CSS_CLASSES.COLUMN_COUNT,
 		});
-		headerEl.appendChild(this.createAddButton(value, options.swimlaneValue ?? null));
+		if (this.getQuickAddFolder()) {
+			headerEl.appendChild(this.createAddButton(value, options.swimlaneValue ?? null));
+		}
 
 		// Remove button — only shown for flat-mode empty columns.
 		if (entries.length === 0 && options.showRemoveButton !== false) {
@@ -1369,20 +1388,12 @@ export class KanbanView extends BasesView {
 		return parsed.name || null;
 	}
 
-	private getTargetFolder(): string | null {
-		const rawFolder = this.config?.get('quickAddFolder');
-		if (typeof rawFolder === 'string') {
-			const folder = normalizePath(rawFolder.trim());
-			if (folder) return folder;
-		}
-		/**
-		 * This is fragile, but at present getTargetFolder is only called from
-		 * createQuickAddCard, which can only be called from a click on the quick add button.
-		 * so it stands to reason the active file is the .base
-		 *
-		 * keep an eye out for an extended base API that gives current path
-		 */
-		return this.app?.workspace.getActiveFile()?.parent?.path ?? null;
+	private getQuickAddFolder(): string | null {
+		const raw = this.config?.get('quickAddFolder');
+		if (typeof raw !== 'string') return null;
+		const trimmed = raw.trim();
+		if (!trimmed) return null;
+		return normalizePath(trimmed);
 	}
 
 	private sanitizeBaseFileName(title: string): string {
@@ -1416,15 +1427,17 @@ export class KanbanView extends BasesView {
 			return;
 		}
 
-		const targetFolder = this.getTargetFolder();
-		const rawConfigFolder = this.config?.get('quickAddFolder');
-		const hasConfiguredFolder = typeof rawConfigFolder === 'string' && !!normalizePath(rawConfigFolder.trim());
-		if (hasConfiguredFolder && targetFolder && !this.app?.vault.getFolderByPath(targetFolder)) {
+		const targetFolder = this.getQuickAddFolder();
+		if (!targetFolder) {
+			new Notice('Quick add requires a folder to be configured.');
+			return;
+		}
+		if (!this.app?.vault.getFolderByPath(targetFolder)) {
 			new Notice(`Quick add folder not found: ${targetFolder}`);
 			return;
 		}
 
-		const fileNameToCreate = targetFolder ? normalizePath(`${targetFolder}/${baseFileName}`) : baseFileName;
+		const fileNameToCreate = normalizePath(`${targetFolder}/${baseFileName}`);
 
 		const setFrontmatter = (frontmatter: Record<string, unknown>): void => {
 			if (columnValue === UNCATEGORIZED_LABEL) {
@@ -1804,7 +1817,7 @@ export class KanbanView extends BasesView {
 				displayName: 'Add card to column folder',
 				type: 'folder',
 				key: 'quickAddFolder',
-				placeholder: 'Default: base file folder',
+				placeholder: 'Required for + button',
 			},
 			{
 				displayName: 'Card title property',
