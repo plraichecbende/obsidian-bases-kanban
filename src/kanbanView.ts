@@ -1,5 +1,33 @@
 import type { BasesEntry, BasesPropertyId, HoverPopover, QueryController, ViewOption } from 'obsidian';
-import { BasesView, Keymap, NullValue, Notice, normalizePath, parsePropertyId, setIcon } from 'obsidian';
+import { BasesView, Keymap, Notice, normalizePath, parsePropertyId } from 'obsidian';
+import {
+	createCard as createCardEl,
+	computeCardFingerprint,
+	type CardRenderCtx,
+	type CardCallbacks,
+} from './components/card.ts';
+import {
+	createAddButton as createAddButtonEl,
+	createQuickAddCard as createQuickAddCardEl,
+	closeNativeNewItemPopover as closeNativeNewItemPopoverEl,
+	type QuickAddCtx,
+	type QuickAddCallbacks,
+} from './components/quickAdd.ts';
+import {
+	applyColumnColor as applyColumnColorEl,
+	createColumn as createColumnEl,
+	patchColumnCards as patchColumnCardsEl,
+	type ColumnRenderCtx,
+	type ColumnCallbacks,
+} from './components/column.ts';
+import {
+	buildSwimlaneElement as buildSwimlaneElementEl,
+	updateSwimlaneToggle as updateSwimlaneToggleEl,
+	sortSwimlaneValues,
+	getOrderedSwimlaneValues as getOrderedSwimlaneValuesEl,
+	type RowRenderCtx,
+	type RowCallbacks,
+} from './components/row.ts';
 import type { TFile } from 'obsidian';
 import Sortable from 'sortablejs';
 import {
@@ -15,7 +43,6 @@ import {
 	SWIMLANE_KEY_SEPARATOR,
 	UNCATEGORIZED_LABEL,
 } from './constants.ts';
-import { QuickAddModal } from './quickAddModal.ts';
 import type { DebouncedFn } from './utils/debounce.ts';
 import { debounce } from './utils/debounce.ts';
 import { ensureGroupExists, normalizePropertyValue } from './utils/grouping.ts';
@@ -558,57 +585,34 @@ export class KanbanView extends BasesView {
 		}
 	}
 
+	private _buildRowCtx(): RowRenderCtx {
+		return {
+			...this._buildColumnCtx(),
+			collapsedLanes: this._prefs.collapsedLanes,
+		};
+	}
+
+	private _buildRowCallbacks(): RowCallbacks {
+		return {
+			...this._buildColumnCallbacks(),
+			onToggleCollapsed: (laneVal, laneEl, toggleBtn) => this.toggleSwimlaneCollapsed(laneVal, laneEl, toggleBtn),
+			attachCardSortable: (body, key) => this.attachCardSortable(body, key),
+			cardOrderKey: (laneVal, colVal) => this.cardOrderKey(laneVal, colVal),
+		};
+	}
+
 	private _buildSwimlaneElement(
 		laneValue: string,
 		laneEntries: Map<string, BasesEntry[]>,
 		orderedColumnValues: string[],
 	): HTMLElement {
-		const laneEl = this.containerEl.doc.createElement('div');
-		laneEl.className = CSS_CLASSES.SWIMLANE;
-		laneEl.setAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE, laneValue);
-		const isCollapsed = this._prefs.collapsedLanes.has(laneValue);
-		if (isCollapsed) laneEl.classList.add(CSS_CLASSES.SWIMLANE_COLLAPSED);
-
-		const headerEl = laneEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_HEADER });
-		const dragHandle = headerEl.createDiv({
-			cls: CSS_CLASSES.SWIMLANE_DRAG_HANDLE,
-		});
-		dragHandle.textContent = '⋮⋮';
-		dragHandle.setAttribute('aria-label', `Drag to reorder lane: ${laneValue}`);
-		headerEl.createSpan({ text: laneValue, cls: CSS_CLASSES.SWIMLANE_TITLE });
-		const laneCount = orderedColumnValues.reduce((sum, col) => sum + (laneEntries.get(col)?.length ?? 0), 0);
-		headerEl.createSpan({
-			text: `${laneCount}`,
-			cls: CSS_CLASSES.SWIMLANE_COUNT,
-		});
-		const toggleBtn = headerEl.createEl('button', {
-			cls: CSS_CLASSES.SWIMLANE_TOGGLE,
-			attr: { type: 'button' },
-		});
-		this.updateSwimlaneToggle(toggleBtn, isCollapsed);
-		toggleBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			try {
-				this.toggleSwimlaneCollapsed(laneValue, laneEl, toggleBtn);
-			} catch (error) {
-				console.error('KanbanView: error toggling swimlane collapsed state', error);
-			}
-		});
-
-		const bodyEl = laneEl.createDiv({ cls: CSS_CLASSES.SWIMLANE_BODY });
-		orderedColumnValues.forEach((columnValue) => {
-			const columnEl = this.createColumn(columnValue, laneEntries.get(columnValue) ?? [], {
-				showRemoveButton: false,
-				swimlaneValue: laneValue,
-			});
-			bodyEl.appendChild(columnEl);
-			const cardBody = columnEl.querySelector<HTMLElement>(
-				`.${CSS_CLASSES.COLUMN_BODY}[${DATA_ATTRIBUTES.SORTABLE_CONTAINER}]`,
-			);
-			if (cardBody) this.attachCardSortable(cardBody, this.cardOrderKey(laneValue, columnValue));
-		});
-
-		return laneEl;
+		return buildSwimlaneElementEl(
+			laneValue,
+			laneEntries,
+			orderedColumnValues,
+			this._buildRowCtx(),
+			this._buildRowCallbacks(),
+		);
 	}
 
 	private _createColumnSortable(containerEl: HTMLElement): Sortable {
@@ -879,97 +883,11 @@ export class KanbanView extends BasesView {
 	}
 
 	private _computeCardFingerprint(entry: BasesEntry): string {
-		const parts: string[] = [];
-		const order = this.config?.getOrder() ?? [];
-		for (const propId of order) {
-			if (propId === this.groupByPropertyId) continue;
-			const val = entry.getValue(propId);
-			parts.push(val === null ? '' : val.toString());
-		}
-		if (this.cardTitlePropertyId) {
-			const val = entry.getValue(this.cardTitlePropertyId);
-			parts.push(val === null ? '' : val.toString());
-		}
-		if (this.imagePropertyId) {
-			const val = entry.getValue(this.imagePropertyId);
-			parts.push(val === null ? '' : val.toString());
-		}
-		return parts.join('\x00');
+		return computeCardFingerprint(entry, this._buildCardCtx());
 	}
 
 	private patchColumnCards(columnEl: HTMLElement, newEntries: BasesEntry[]): void {
-		const body = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_BODY}`);
-		if (!body) return;
-
-		// Update column count
-		const countEl = columnEl.querySelector(`.${CSS_CLASSES.COLUMN_COUNT}`);
-		if (countEl) countEl.textContent = `${newEntries.length}`;
-
-		// Sync remove button: show only for flat-mode empty columns (never inside a swimlane)
-		const headerEl = columnEl.querySelector<HTMLElement>(`.${CSS_CLASSES.COLUMN_HEADER}`);
-		const columnValue = columnEl.getAttribute(DATA_ATTRIBUTES.COLUMN_VALUE);
-		const existingRemoveBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_REMOVE_BTN}`) ?? null;
-		const isInSwimlane = !!columnEl.closest(`.${CSS_CLASSES.SWIMLANE}`);
-		if (headerEl && newEntries.length === 0 && !existingRemoveBtn && columnValue && !isInSwimlane) {
-			headerEl.appendChild(this.createRemoveButton(columnValue, columnEl));
-		} else if (newEntries.length > 0 && existingRemoveBtn) {
-			existingRemoveBtn.remove();
-		}
-
-		// Sync add button: present only when quickAddFolder is configured
-		const existingAddBtn = headerEl?.querySelector(`.${CSS_CLASSES.COLUMN_ADD_BTN}`) ?? null;
-		const hasFolder = !!this.getQuickAddFolder();
-		if (headerEl && columnValue && hasFolder && !existingAddBtn) {
-			const swimlaneEl = columnEl.closest<HTMLElement>(`[${DATA_ATTRIBUTES.SWIMLANE_VALUE}]`);
-			const swimlaneValue = swimlaneEl?.getAttribute(DATA_ATTRIBUTES.SWIMLANE_VALUE) ?? null;
-			headerEl.appendChild(this.createAddButton(columnValue, swimlaneValue));
-		} else if (!hasFolder && existingAddBtn) {
-			existingAddBtn.remove();
-		}
-
-		// Remove cards whose entry is no longer in this column
-		const newPaths = new Set(newEntries.map((e) => e.file.path));
-		body.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.CARD}`).forEach((card) => {
-			const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
-			if (path && !newPaths.has(path)) card.remove();
-		});
-
-		// Re-create cards only when their content fingerprint changes, so property
-		// value updates are always reflected while unchanged cards are left in place.
-		const existingCards = new Map<string, HTMLElement>();
-		body.querySelectorAll<HTMLElement>(`.${CSS_CLASSES.CARD}`).forEach((card) => {
-			const path = card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH);
-			if (path) existingCards.set(path, card);
-		});
-		newEntries.forEach((entry) => {
-			const fp = this._computeCardFingerprint(entry);
-			const existing = existingCards.get(entry.file.path);
-			if (existing && this._cardFingerprints.get(entry.file.path) === fp) {
-				return;
-			}
-			const newCard = this.createCard(entry);
-			this._cardFingerprints.set(entry.file.path, fp);
-			if (existing) {
-				body.replaceChild(newCard, existing);
-			} else {
-				body.appendChild(newCard);
-			}
-		});
-
-		// Reorder cards in the DOM to match newEntries order.
-		// Skipped during active drags — Sortable owns the DOM during a drag and
-		// reordering here would fight its live preview, causing visual thrashing.
-		if (!this._dragging) {
-			const pathToCard = new Map<string, Element>();
-			body.querySelectorAll(`.${CSS_CLASSES.CARD}`).forEach((card) => {
-				const path = card.instanceOf(HTMLElement) ? card.getAttribute(DATA_ATTRIBUTES.ENTRY_PATH) : null;
-				if (path) pathToCard.set(path, card);
-			});
-			newEntries.forEach((entry) => {
-				const card = pathToCard.get(entry.file.path);
-				if (card) body.appendChild(card);
-			});
-		}
+		patchColumnCardsEl(columnEl, newEntries, this._buildColumnCtx(), this._buildColumnCallbacks());
 	}
 
 	private groupEntriesByProperty(entries: BasesEntry[], propertyId: BasesPropertyId): Map<string, BasesEntry[]> {
@@ -1035,42 +953,16 @@ export class KanbanView extends BasesView {
 		if (willCollapse) this._prefs.collapsedLanes.add(laneValue);
 		else this._prefs.collapsedLanes.delete(laneValue);
 		laneEl.classList.toggle(CSS_CLASSES.SWIMLANE_COLLAPSED, willCollapse);
-		this.updateSwimlaneToggle(toggleBtn, willCollapse);
+		updateSwimlaneToggleEl(toggleBtn, willCollapse);
 		this._persistPrefs();
 	}
 
-	private updateSwimlaneToggle(toggleBtn: HTMLElement, isCollapsed: boolean): void {
-		const label = isCollapsed ? 'Expand lane' : 'Collapse lane';
-		toggleBtn.empty();
-		setIcon(toggleBtn, isCollapsed ? 'chevron-right' : 'chevron-down');
-		toggleBtn.setAttribute('aria-label', label);
-		toggleBtn.setAttribute('title', label);
-		toggleBtn.setAttribute('aria-expanded', String(!isCollapsed));
-	}
-
-	/**
-	 * Order swimlane values: prefer the saved order if present (drag-reorder
-	 * persists into _prefs.swimlaneOrder); otherwise sort alphabetically with
-	 * UNCATEGORIZED_LABEL pinned last. New lanes (not yet in saved order) are
-	 * appended at the end.
-	 */
 	private _sortSwimlaneValues(values: string[]): string[] {
-		return [...values].sort((a, b) => {
-			if (a === UNCATEGORIZED_LABEL) return 1;
-			if (b === UNCATEGORIZED_LABEL) return -1;
-			return a.localeCompare(b);
-		});
+		return sortSwimlaneValues(values);
 	}
 
 	private getOrderedSwimlaneValues(liveValues: string[]): string[] {
-		if (!this._prefs.swimlaneOrder.length) {
-			return this._sortSwimlaneValues(liveValues);
-		}
-		const liveSet = new Set(liveValues);
-		const ordered = this._prefs.swimlaneOrder.filter((v) => liveSet.has(v));
-		const orderedSet = new Set(ordered);
-		const newOnes = liveValues.filter((v) => !orderedSet.has(v));
-		return [...ordered, ...newOnes];
+		return getOrderedSwimlaneValuesEl(liveValues, this._prefs.swimlaneOrder);
 	}
 
 	/**
@@ -1090,207 +982,64 @@ export class KanbanView extends BasesView {
 		return flat;
 	}
 
+	private _buildColumnCtx(): ColumnRenderCtx {
+		return {
+			doc: this.containerEl.doc,
+			card: this._buildCardCtx(),
+			cardCb: this._buildCardCallbacks(),
+			prefs: { columnColors: this._prefs.columnColors },
+			dragging: this._dragging,
+			cardFingerprints: this._cardFingerprints,
+		};
+	}
+
+	private _buildColumnCallbacks(): ColumnCallbacks {
+		return {
+			applyColumnColor: (el, name) => this.applyColumnColor(el, name),
+			onColorPickerClick: (anchor, col, val) => this.openColorPicker(anchor, col, val),
+			onRemoveColumn: (val, el) => this.removeColumn(val, el),
+			createAddButton: (colVal, laneVal) => this.createAddButton(colVal, laneVal),
+			getQuickAddFolder: () => this.getQuickAddFolder(),
+		};
+	}
+
 	private createColumn(
 		value: string,
 		entries: BasesEntry[],
 		options: { showRemoveButton?: boolean; swimlaneValue?: string | null } = {},
 	): HTMLElement {
-		const columnEl = this.containerEl.doc.createElement('div');
-		columnEl.className = CSS_CLASSES.COLUMN;
-		columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_VALUE, value);
-
-		// Apply stored color accent from prefs
-		const colorName = this._prefs.columnColors[value] ?? null;
-		this.applyColumnColor(columnEl, colorName);
-
-		// Column header
-		const headerEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_HEADER });
-
-		const dragHandle = headerEl.createDiv({
-			cls: CSS_CLASSES.COLUMN_DRAG_HANDLE,
-		});
-		dragHandle.textContent = '⋮⋮';
-
-		const colorBtn = headerEl.createDiv({ cls: CSS_CLASSES.COLUMN_COLOR_BTN });
-		colorBtn.setAttribute('aria-label', `Set color for column: ${value}`);
-		colorBtn.setAttribute('role', 'button');
-		colorBtn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			this.openColorPicker(colorBtn, columnEl, value);
-		});
-
-		headerEl.createSpan({ text: value, cls: CSS_CLASSES.COLUMN_TITLE });
-		headerEl.createSpan({
-			text: `${entries.length}`,
-			cls: CSS_CLASSES.COLUMN_COUNT,
-		});
-		if (this.getQuickAddFolder()) {
-			headerEl.appendChild(this.createAddButton(value, options.swimlaneValue ?? null));
-		}
-
-		// Remove button — only shown for flat-mode empty columns.
-		if (entries.length === 0 && options.showRemoveButton !== false) {
-			headerEl.appendChild(this.createRemoveButton(value, columnEl));
-		}
-
-		// Column body (cards container)
-		const bodyEl = columnEl.createDiv({ cls: CSS_CLASSES.COLUMN_BODY });
-		bodyEl.setAttribute(DATA_ATTRIBUTES.SORTABLE_CONTAINER, 'true');
-
-		entries.forEach((entry) => {
-			const cardEl = this.createCard(entry);
-			bodyEl.appendChild(cardEl);
-		});
-
-		return columnEl;
+		return createColumnEl(value, entries, options, this._buildColumnCtx(), this._buildColumnCallbacks());
 	}
 
-	private renderCardTitle(titleEl: HTMLElement, entry: BasesEntry, filePath: string): void {
-		if (!this.cardTitlePropertyId) {
-			titleEl.textContent = entry.file.basename;
-			return;
-		}
-
-		const titleValue = entry.getValue(this.cardTitlePropertyId);
-
-		if (!titleValue || titleValue instanceof NullValue) {
-			titleEl.textContent = entry.file.basename;
-			return;
-		}
-
-		titleValue.renderTo(titleEl, this.app.renderContext);
+	private _buildCardCtx(): CardRenderCtx {
+		return {
+			app: this.app,
+			doc: this.containerEl.doc,
+			groupByPropertyId: this.groupByPropertyId,
+			cardTitlePropertyId: this.cardTitlePropertyId,
+			imagePropertyId: this.imagePropertyId,
+			imageFit: this._lastImageFit ?? 'cover',
+			imageAspectRatio: this._lastImageAspectRatio ?? 0.5,
+			wrapValues: this._lastWrapValue ?? false,
+			order: this.config?.getOrder() ?? [],
+			getDisplayName: (id) => this.config?.getDisplayName(id) ?? id,
+		};
 	}
 
-	/**
-	 * Render a cover image for the card using the configured image property.
-	 * Accepts wikilinks (`[[cover.png]]`), legacy markdown embeds (`![[cover.png]]`),
-	 * and external URLs (`http(s)://…`). Returns false if nothing renderable was found
-	 * so the caller can discard an empty slot.
-	 */
-	private renderCardCover(coverEl: HTMLElement, entry: BasesEntry, filePath: string): boolean {
-		if (!this.imagePropertyId) return false;
-		const value = entry.getValue(this.imagePropertyId);
-		if (!value || value instanceof NullValue) return false;
-
-		const raw = value.toString().trim();
-		if (!raw) return false;
-
-		if (/^https?:\/\//i.test(raw)) {
-			coverEl.createEl('img', { attr: { src: raw, alt: '' } });
-			return true;
-		}
-
-		// Strip legacy `!` embed prefix and surrounding wikilink brackets.
-		let linkText = raw.replace(/^!\s*/, '');
-		const wikiMatch = linkText.match(/^\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]$/);
-		if (wikiMatch) linkText = wikiMatch[1];
-		linkText = linkText.trim();
-		if (!linkText) return false;
-
-		const app = this.app;
-		if (!app) return false;
-		const file = app.metadataCache.getFirstLinkpathDest(linkText, filePath);
-		if (!file) return false;
-
-		coverEl.createEl('img', {
-			attr: { src: app.vault.getResourcePath(file), alt: '' },
-		});
-		return true;
+	private _buildCardCallbacks(): CardCallbacks {
+		return {
+			onHoverPreview: (lt, sp, e, el) => this.triggerHoverPreview(lt, sp, e, el),
+			onSetActiveCard: (path) => this.setActiveCard(path),
+			onOpenInBackgroundTab: (file) => this.openInBackgroundTab(file),
+		};
 	}
 
 	private createCard(entry: BasesEntry): HTMLElement {
-		const cardEl = this.containerEl.doc.createElement('div');
-		cardEl.className = CSS_CLASSES.CARD;
-		const filePath = entry.file.path;
-		cardEl.setAttribute(DATA_ATTRIBUTES.ENTRY_PATH, filePath);
-
-		if (this.imagePropertyId) {
-			const coverEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_COVER });
-			const fit = this.config?.get('imageFit') === 'contain' ? 'contain' : 'cover';
-			coverEl.classList.add(fit === 'contain' ? CSS_CLASSES.CARD_COVER_FIT_CONTAIN : CSS_CLASSES.CARD_COVER_FIT_COVER);
-			const rawRatio = Number(this.config?.get('imageAspectRatio'));
-			const ratio = Number.isFinite(rawRatio) && rawRatio > 0 ? rawRatio : 0.5;
-			coverEl.style.aspectRatio = `1 / ${ratio}`;
-			const rendered = this.renderCardCover(coverEl, entry, filePath);
-			if (!rendered) coverEl.remove();
-		}
-
-		const titleEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_TITLE });
-		this.renderCardTitle(titleEl, entry, filePath);
-
-		const order = this.config?.getOrder() ?? [];
-		const shouldWrap = this.config?.get('wrapPropertyValues') === true;
-
-		for (const propertyId of order) {
-			if (propertyId === this.groupByPropertyId) continue;
-			const value = entry.getValue(propertyId);
-			if (!value || value instanceof NullValue) continue;
-			if (!value.toString().trim()) continue;
-			const label = this.config?.getDisplayName(propertyId) ?? propertyId;
-			const propertyEl = cardEl.createDiv({ cls: CSS_CLASSES.CARD_PROPERTY });
-			propertyEl.setAttribute('data-label', propertyId);
-			if (shouldWrap) {
-				propertyEl.classList.add(CSS_CLASSES.CARD_PROPERTY_WRAP);
-			}
-			propertyEl.createSpan({
-				text: label,
-				cls: CSS_CLASSES.CARD_PROPERTY_LABEL,
-			});
-			const valueEl = propertyEl.createSpan({
-				cls: CSS_CLASSES.CARD_PROPERTY_VALUE,
-			});
-			value.renderTo(valueEl, this.app.renderContext);
-		}
-
-		// JS-managed hover: mouseenter/mouseleave instead of CSS :hover so the
-		// class is never applied when an element slides under a stationary cursor
-		// after a drag reorders the DOM.
-		cardEl.addEventListener('mouseenter', () => cardEl.classList.add(CSS_CLASSES.CARD_HOVER));
-		cardEl.addEventListener('mouseleave', () => cardEl.classList.remove(CSS_CLASSES.CARD_HOVER));
-		cardEl.addEventListener('mouseover', (e) => {
-			if (e.target instanceof Element && e.target.closest('a')) return;
-			if (e.relatedTarget instanceof Element && cardEl.contains(e.relatedTarget)) return;
-			this.triggerHoverPreview(filePath, '', e, cardEl);
-		});
-
-		const clickHandler = (e: MouseEvent) => {
-			if (e.target instanceof Element && e.target.closest('a')) return;
-			if (e.type === 'auxclick' && e.button !== 1) return;
-			this.setActiveCard(filePath);
-			if (!this.app?.workspace) return;
-			if (e.button === 1) {
-				this.openInBackgroundTab(entry.file);
-				return;
-			}
-			void this.app.workspace.openLinkText(filePath, '', Keymap.isModEvent(e));
-		};
-		cardEl.addEventListener('click', clickHandler);
-		cardEl.addEventListener('auxclick', clickHandler);
-
-		// Prevent middle-click autoscroll inside cards.
-		cardEl.addEventListener('mousedown', (e) => {
-			if (e.button !== 1) return;
-			if (e.target instanceof Element && e.target.closest('a')) return;
-			e.preventDefault();
-		});
-
-		return cardEl;
+		return createCardEl(entry, this._buildCardCtx(), this._buildCardCallbacks());
 	}
 
 	private applyColumnColor(columnEl: HTMLElement, colorName: string | null): void {
-		if (!colorName) {
-			columnEl.style.removeProperty('--obk-column-accent-color');
-			columnEl.removeAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
-			return;
-		}
-		const cssVar = COLOR_PALETTE.find((c) => c.name === colorName)?.cssVar ?? null;
-		if (!cssVar) {
-			columnEl.style.removeProperty('--obk-column-accent-color');
-			columnEl.removeAttribute(DATA_ATTRIBUTES.COLUMN_COLOR);
-			return;
-		}
-		columnEl.style.setProperty('--obk-column-accent-color', cssVar);
-		columnEl.setAttribute(DATA_ATTRIBUTES.COLUMN_COLOR, colorName);
+		applyColumnColorEl(columnEl, colorName);
 	}
 
 	private openColorPicker(anchorEl: HTMLElement, columnEl: HTMLElement, columnValue: string): void {
@@ -1347,47 +1096,6 @@ export class KanbanView extends BasesView {
 		anchorEl.doc.addEventListener('click', dismiss);
 	}
 
-	private createAddButton(columnValue: string, swimlaneValue: string | null): HTMLElement {
-		const btn = this.containerEl.doc.createElement('div');
-		btn.className = CSS_CLASSES.COLUMN_ADD_BTN;
-		btn.setAttribute(
-			'aria-label',
-			swimlaneValue
-				? `Add card to column: ${columnValue} in lane: ${swimlaneValue}`
-				: `Add card to column: ${columnValue}`,
-		);
-		btn.setAttribute('role', 'button');
-		btn.setAttribute('tabindex', '0');
-		setIcon(btn, 'plus');
-		btn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			this.openQuickAdd(columnValue, swimlaneValue);
-		});
-		btn.addEventListener('keydown', (e) => {
-			if (e.key !== 'Enter' && e.key !== ' ') return;
-			e.preventDefault();
-			e.stopPropagation();
-			this.openQuickAdd(columnValue, swimlaneValue);
-		});
-		return btn;
-	}
-
-	private openQuickAdd(columnValue: string, swimlaneValue: string | null): void {
-		if (!this.app) return;
-		new QuickAddModal(this.app, {
-			columnValue,
-			swimlaneValue,
-			onSubmit: (title) => this.createQuickAddCard(title, columnValue, swimlaneValue),
-		}).open();
-	}
-
-	private getWritableFrontmatterPropertyName(propertyId: BasesPropertyId | null): string | null {
-		if (!propertyId) return null;
-		const parsed = parsePropertyId(propertyId);
-		if (parsed.type !== 'note') return null;
-		return parsed.name || null;
-	}
-
 	private getQuickAddFolder(): string | null {
 		const raw = this.config?.get('quickAddFolder');
 		if (typeof raw !== 'string') return null;
@@ -1396,103 +1104,38 @@ export class KanbanView extends BasesView {
 		return normalizePath(trimmed);
 	}
 
-	private sanitizeBaseFileName(title: string): string {
-		return title
-			.trim()
-			.replace(/\.md$/i, '')
-			.replace(/[\\/:*?"<>|]/g, '-')
-			.replace(/\s+/g, ' ')
-			.replace(/[.\s]+$/g, '')
-			.trim();
+	private _buildQuickAddCtx(): QuickAddCtx {
+		return {
+			app: this.app,
+			doc: this.containerEl.doc,
+			prefsPropertyId: this._prefsPropertyId,
+			prefsSwimlanePropertyId: this._prefsSwimlanePropertyId,
+			quickAddFolder: this.getQuickAddFolder(),
+		};
+	}
+
+	private _buildQuickAddCallbacks(): QuickAddCallbacks {
+		return {
+			createFileForView: (path, setFm) => this.createFileForView(path, setFm),
+		};
+	}
+
+	private createAddButton(columnValue: string, swimlaneValue: string | null): HTMLElement {
+		return createAddButtonEl(columnValue, swimlaneValue, this._buildQuickAddCtx(), this._buildQuickAddCallbacks());
 	}
 
 	private async createQuickAddCard(title: string, columnValue: string, swimlaneValue: string | null): Promise<void> {
-		const baseFileName = this.sanitizeBaseFileName(title);
-		if (!baseFileName) {
-			new Notice('Enter a card title.');
-			return;
-		}
-
-		const columnPropertyName = this.getWritableFrontmatterPropertyName(this._prefsPropertyId);
-		if (!columnPropertyName) {
-			new Notice('Quick add needs a writable note property for columns.');
-			return;
-		}
-
-		const swimlanePropertyName = swimlaneValue
-			? this.getWritableFrontmatterPropertyName(this._prefsSwimlanePropertyId)
-			: null;
-		if (swimlaneValue && !swimlanePropertyName) {
-			new Notice('Quick add needs a writable note property for swimlanes.');
-			return;
-		}
-
-		const targetFolder = this.getQuickAddFolder();
-		if (!targetFolder) {
-			new Notice('Quick add requires a folder to be configured.');
-			return;
-		}
-		if (!this.app?.vault.getFolderByPath(targetFolder)) {
-			new Notice(`Quick add folder not found: ${targetFolder}`);
-			return;
-		}
-
-		const fileNameToCreate = normalizePath(`${targetFolder}/${baseFileName}`);
-
-		const setFrontmatter = (frontmatter: Record<string, unknown>): void => {
-			if (columnValue === UNCATEGORIZED_LABEL) {
-				delete frontmatter[columnPropertyName];
-			} else {
-				frontmatter[columnPropertyName] = columnValue;
-			}
-
-			if (!swimlaneValue || !swimlanePropertyName) return;
-			if (swimlaneValue === UNCATEGORIZED_LABEL) {
-				delete frontmatter[swimlanePropertyName];
-			} else {
-				frontmatter[swimlanePropertyName] = swimlaneValue;
-			}
-		};
-
-		try {
-			await this.createFileForView(fileNameToCreate, setFrontmatter);
-			this.closeNativeNewItemPopover();
-		} catch (error) {
-			console.error('Error creating kanban card:', error);
-			new Notice('Could not create card.');
-		}
+		return createQuickAddCardEl(
+			title,
+			columnValue,
+			swimlaneValue,
+			this._buildQuickAddCtx(),
+			this._buildQuickAddCallbacks(),
+		);
 	}
 
 	private closeNativeNewItemPopover(): void {
-		const closePopovers = () => {
-			const popovers = Array.from(this.containerEl.doc.querySelectorAll<HTMLElement>('.bases-new-item-popover'));
-			if (popovers.length === 0) return;
-
-			this.containerEl.doc.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-			this.containerEl.doc.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-			popovers.forEach((popover) => {
-				popover.remove();
-			});
-		};
-
-		closePopovers();
-		window.requestAnimationFrame(closePopovers);
-		for (const delay of [50, 250, 1000]) {
-			window.setTimeout(closePopovers, delay);
-		}
-	}
-
-	private createRemoveButton(value: string, columnEl: HTMLElement): HTMLElement {
-		const btn = this.containerEl.doc.createElement('div');
-		btn.className = CSS_CLASSES.COLUMN_REMOVE_BTN;
-		btn.setAttribute('aria-label', `Remove column: ${value}`);
-		btn.setAttribute('role', 'button');
-		btn.textContent = '×';
-		btn.addEventListener('click', (e) => {
-			e.stopPropagation();
-			this.removeColumn(value, columnEl);
-		});
-		return btn;
+		closeNativeNewItemPopoverEl(this.containerEl.doc);
 	}
 
 	private detachColumn(value: string, colEl: HTMLElement): void {
