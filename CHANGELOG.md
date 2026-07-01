@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.0.2
+
+- Fix Obsidian review feedback by removing redundant wording from the plugin description and updating the README fork link.
+- Sync the upstream swimlane fix that shows remove buttons for columns that are empty across all lanes.
+
 ## 0.0.1
 
 Initial custom fork release:
