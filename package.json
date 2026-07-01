@@ -1,7 +1,7 @@
 {
 	"name": "kanban-bases-view-cl",
 	"version": "0.0.1",
-	"description": "A customized kanban-style drag-and-drop custom view for Obsidian Bases",
+	"description": "A customized kanban-style drag-and-drop custom view for Bases",
 	"main": "main.js",
 	"imports": {
 		"obsidian": "./tests/mocks/obsidian.ts",

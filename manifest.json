@@ -3,7 +3,7 @@
 	"name": "Kanban Bases View CL",
 	"version": "0.0.1",
 	"minAppVersion": "1.10.2",
-	"description": "A customized kanban-style drag-and-drop custom view for Obsidian Bases.",
+	"description": "A customized kanban-style drag-and-drop custom view for Bases.",
 	"author": "Christian Lempa",
 	"authorUrl": "https://github.com/ChristianLempa",
 	"isDesktopOnly": false

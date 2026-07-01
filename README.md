@@ -2,7 +2,7 @@
 
 A customized kanban-style drag-and-drop custom view for Obsidian Bases that allows you to organize your notes into columns based on any property.
 
-This is Christian Lempa's custom fork of [xiwcx/obsidian-bases-kanban](https://github.com/xiwcx/obsidian-bases-kanban). It uses a unique plugin ID (`kanban-bases-view-cl`) and Bases view type (`kanban-view-cl`) so it can coexist with the upstream plugin.
+This is Christian Lempa's customized edition of Kanban Bases View. It uses a unique plugin ID (`kanban-bases-view-cl`) and Bases view type (`kanban-view-cl`) so it can coexist with other kanban Bases plugins.
 
 ## Custom features
 
