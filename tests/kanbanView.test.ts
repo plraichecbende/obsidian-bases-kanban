@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { beforeEach, describe, test } from 'node:test';
-import { Notice } from 'obsidian';
+import { ListValue, Notice, StringValue } from 'obsidian';
 import type { BasesPropertyId } from 'obsidian';
 import {
 	CSS_CLASSES,
@@ -1025,11 +1025,126 @@ describe('Data Rendering - Image cover property', () => {
 		assert.strictEqual(img.getAttribute('src'), 'https://example.com/remote.jpg');
 	});
 
+	test('list image property renders all images as a cover gallery', () => {
+		const entry = createMockBasesEntry(createMockTFile('Gallery.md'), { [PROPERTY_STATUS]: 'To Do' });
+		entry.getValue = (propertyId: BasesPropertyId) => {
+			if (propertyId === PROPERTY_STATUS) return new StringValue('To Do');
+			if (propertyId === PROPERTY_COVER) {
+				return new ListValue([new StringValue('[[cover-1.jpg]]'), new StringValue('https://example.com/remote.jpg')]);
+			}
+			return null;
+		};
+		controller = createMockQueryController([entry], [PROPERTY_STATUS, PROPERTY_COVER]);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'imageProperty') return PROPERTY_COVER;
+			return null;
+		};
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const cover = cardByPath(view, 'Gallery.md').querySelector('.obk-card-cover') as HTMLElement;
+		const imgs = cover.querySelectorAll('img');
+		assert.ok(cover.classList.contains('obk-card-cover--gallery'));
+		assert.strictEqual(imgs.length, 2);
+		assert.strictEqual(imgs[0].getAttribute('src'), 'app://fake/attachments/cover-1.jpg');
+		assert.strictEqual(imgs[1].getAttribute('src'), 'https://example.com/remote.jpg');
+	});
+
+	test('space-separated local image paths render as a cover gallery and are not repeated as card text', () => {
+		app = createMockApp({
+			'media/thumb.jpg': { path: 'media/thumb.jpg' },
+			'media/instagram.jpg': { path: 'media/instagram.jpg' },
+		});
+		const entry = createMockBasesEntry(createMockTFile('Space Gallery.md'), {
+			[PROPERTY_STATUS]: 'To Do',
+			[PROPERTY_COVER]: 'media/thumb.jpg media/instagram.jpg',
+		});
+		controller = createMockQueryController([entry], [PROPERTY_STATUS, PROPERTY_COVER]);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'imageProperty') return PROPERTY_COVER;
+			return null;
+		};
+		controller.config.getOrder = () => [PROPERTY_COVER];
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const card = cardByPath(view, 'Space Gallery.md');
+		const cover = card.querySelector('.obk-card-cover') as HTMLElement;
+		const imgs = cover.querySelectorAll('img');
+		assert.ok(cover.classList.contains('obk-card-cover--gallery'));
+		assert.strictEqual(imgs.length, 2);
+		assert.strictEqual(imgs[0].getAttribute('src'), 'app://fake/media/thumb.jpg');
+		assert.strictEqual(imgs[1].getAttribute('src'), 'app://fake/media/instagram.jpg');
+		assert.strictEqual(
+			card.querySelector('[data-label="note.cover"]'),
+			null,
+			'image property should not be repeated as text',
+		);
+	});
+
+	test('rendered image property values can expose additional gallery images', () => {
+		const entry = createMockBasesEntry(createMockTFile('Rendered Gallery.md'), { [PROPERTY_STATUS]: 'To Do' });
+		entry.getValue = (propertyId: BasesPropertyId) => {
+			if (propertyId === PROPERTY_STATUS) return new StringValue('To Do');
+			if (propertyId === PROPERTY_COVER) {
+				return {
+					toString: () => '[[cover-1.jpg]]',
+					isTruthy: () => true,
+					equals: () => false,
+					looseEquals: () => false,
+					renderTo: (el: HTMLElement) => {
+						el.createEl('img', { attr: { src: 'app://fake/attachments/cover-1.jpg', alt: '' } });
+						el.createEl('img', { attr: { src: 'https://example.com/remote.jpg', alt: '' } });
+					},
+				};
+			}
+			return null;
+		};
+		controller = createMockQueryController([entry], [PROPERTY_STATUS, PROPERTY_COVER]);
+		controller.app = app;
+		controller.config.getAsPropertyId = (key: string) => {
+			if (key === 'groupByProperty') return PROPERTY_STATUS;
+			if (key === 'imageProperty') return PROPERTY_COVER;
+			return null;
+		};
+		const view = new KanbanView(controller, scrollEl);
+		setupKanbanViewWithApp(view, app);
+		triggerDataUpdate(view);
+
+		const cover = cardByPath(view, 'Rendered Gallery.md').querySelector('.obk-card-cover') as HTMLElement;
+		const imgs = cover.querySelectorAll('img');
+		assert.ok(cover.classList.contains('obk-card-cover--gallery'));
+		assert.strictEqual(imgs.length, 2);
+		assert.strictEqual(imgs[0].getAttribute('src'), 'app://fake/attachments/cover-1.jpg');
+		assert.strictEqual(imgs[1].getAttribute('src'), 'https://example.com/remote.jpg');
+	});
+
 	test('legacy ![[...]] prefix still resolves (backward compat)', () => {
 		const view = setupCoverView();
 		const img = cardByPath(view, 'Task C.md').querySelector('.obk-card-cover img') as HTMLImageElement;
 		assert.ok(img, 'cover img should render when value has leading !');
 		assert.strictEqual(img.getAttribute('src'), 'app://fake/attachments/cover-1.jpg');
+	});
+
+	test('local image source is refreshed when the attachment mtime changes', () => {
+		const imageFile = createMockTFile('attachments/cover-1.jpg');
+		imageFile.stat.mtime = 1000;
+		imageFile.stat.size = 200;
+		app = createMockApp({ 'cover-1.jpg': imageFile });
+		const view = setupCoverView();
+		let img = cardByPath(view, 'Task A.md').querySelector('.obk-card-cover img') as HTMLImageElement;
+		assert.strictEqual(img.getAttribute('src'), 'app://fake/attachments/cover-1.jpg?v=1000-200');
+
+		imageFile.stat.mtime = 2000;
+		triggerDataUpdate(view);
+		img = cardByPath(view, 'Task A.md').querySelector('.obk-card-cover img') as HTMLImageElement;
+		assert.strictEqual(img.getAttribute('src'), 'app://fake/attachments/cover-1.jpg?v=2000-200');
 	});
 
 	test('unresolvable wikilink → no cover slot on that card', () => {

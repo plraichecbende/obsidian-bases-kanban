@@ -1,4 +1,4 @@
-import type { BasesEntry, BasesPropertyId, HoverPopover, QueryController, ViewOption } from 'obsidian';
+import type { BasesEntry, BasesPropertyId, EventRef, HoverPopover, QueryController, ViewOption } from 'obsidian';
 import { BasesView, Keymap, Notice, normalizePath, parsePropertyId } from 'obsidian';
 import {
 	createCard as createCardEl,
@@ -88,7 +88,7 @@ export function isCollapsedLanes(value: unknown): value is Record<string, string
 }
 
 export class KanbanView extends BasesView {
-	type = 'kanban-view';
+	type = 'kanban-view-cl';
 	hoverPopover: HoverPopover | null = null;
 
 	scrollEl: HTMLElement;
@@ -104,6 +104,7 @@ export class KanbanView extends BasesView {
 	private swimlaneColumnSortables: Map<string | null, Sortable> = new Map();
 	private _debouncedRender: DebouncedFn<() => void>;
 	private activeColorPicker: HTMLElement | null = null;
+	private vaultModifyRef: EventRef | null = null;
 
 	/**
 	 * In-memory display preferences — the single source of truth during a session.
@@ -200,10 +201,26 @@ export class KanbanView extends BasesView {
 				console.error('KanbanView error:', error);
 			}
 		}, DEBOUNCE_DELAY);
+
+		this.registerImageFileRefresh();
 	}
 
 	onDataUpdated(): void {
 		this._debouncedRender();
+	}
+
+	private registerImageFileRefresh(): void {
+		const vault = this.app?.vault;
+		if (!vault?.on) return;
+		this.vaultModifyRef = vault.on('modify', (file: TFile) => {
+			if (!this.isImageFile(file)) return;
+			this._cardFingerprints.clear();
+			this._debouncedRender();
+		});
+	}
+
+	private isImageFile(file: TFile): boolean {
+		return /^(avif|bmp|gif|jpe?g|png|svg|webp)$/i.test(file.extension);
 	}
 
 	private loadConfig(): void {
@@ -540,6 +557,7 @@ export class KanbanView extends BasesView {
 		this.containerEl.empty();
 		this.containerEl.classList.toggle(CSS_CLASSES.VIEW_CONTAINER_WITH_SWIMLANES, hasSwimlanes);
 		this.destroySortables();
+		this._cardFingerprints.clear();
 		const boardEl = this.containerEl.createDiv({
 			cls: hasSwimlanes ? `${CSS_CLASSES.BOARD} ${CSS_CLASSES.BOARD_WITH_SWIMLANES}` : CSS_CLASSES.BOARD,
 		});
@@ -1412,6 +1430,10 @@ export class KanbanView extends BasesView {
 
 	onClose(): void {
 		this._debouncedRender.cancel();
+		if (this.vaultModifyRef) {
+			this.app?.vault.offref?.(this.vaultModifyRef);
+			this.vaultModifyRef = null;
+		}
 		this.destroySortables();
 		this.activeColorPicker?.remove();
 		this.activeColorPicker = null;

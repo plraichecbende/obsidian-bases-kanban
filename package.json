@@ -1,7 +1,7 @@
 {
-	"name": "kanban-bases-view",
-	"version": "0.10.1",
-	"description": "A kanban-style drag-and-drop custom view for Obsidian Bases",
+	"name": "kanban-bases-view-cl",
+	"version": "0.0.1",
+	"description": "A customized kanban-style drag-and-drop custom view for Obsidian Bases",
 	"main": "main.js",
 	"imports": {
 		"obsidian": "./tests/mocks/obsidian.ts",
@@ -16,7 +16,10 @@
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"format": "biome format --write .",
-		"format:check": "biome format --diagnostic-level=error ."
+		"format:check": "biome format --diagnostic-level=error .",
+		"ci": "npm run lint && npm run format:check && npm run typecheck && npm test && npm run build && npm run version:check",
+		"version:check": "node scripts/check-version.mjs",
+		"release:notes": "node scripts/extract-release-notes.mjs"
 	},
 	"keywords": [
 		"obsidian",
@@ -25,7 +28,7 @@
 		"bases",
 		"task-management"
 	],
-	"author": "I. Welch Canavan",
+	"author": "Christian Lempa",
 	"license": "MIT",
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.8",

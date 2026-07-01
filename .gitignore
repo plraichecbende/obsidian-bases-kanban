@@ -2,3 +2,10 @@ node_modules/
 .DS_Store
 *.log
 dist/
+release-notes.md
+
+# Local Obsidian vault symlinks
+/AGENTS.md
+/docs
+/plan
+/obsidian-bases-kanban.md

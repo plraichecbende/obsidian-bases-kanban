@@ -1,6 +1,14 @@
-# Kanban Bases View Plugin for Obsidian
+# Kanban Bases View CL Plugin for Obsidian
 
-A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to organize your notes into columns based on any property.
+A customized kanban-style drag-and-drop custom view for Obsidian Bases that allows you to organize your notes into columns based on any property.
+
+This is Christian Lempa's custom fork of [xiwcx/obsidian-bases-kanban](https://github.com/xiwcx/obsidian-bases-kanban). It uses a unique plugin ID (`kanban-bases-view-cl`) and Bases view type (`kanban-view-cl`) so it can coexist with the upstream plugin.
+
+## Custom features
+
+- **Image gallery support**: The image property supports list properties containing multiple images.
+- **Per-group column collapse**: Collapse or expand individual columns/groups.
+- **Configurable column widths**: Choose between small, medium, and large column widths.
 
 ## Demo
 
@@ -38,8 +46,8 @@ A kanban-style drag-and-drop custom view for Obsidian Bases that allows you to o
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/xiwcx/obsidian-bases-kanban-custom-view.git
-   cd obsidian-bases-kanban-custom-view
+   git clone https://github.com/ChristianLempa/obsidian-bases-kanban.git
+   cd obsidian-bases-kanban
    ```
 
 2. Install dependencies:
@@ -164,23 +172,26 @@ npm run format:check
 
 ### Creating a Release
 
-1. **Update version**: Manually update the version in `manifest.json` following [Semantic Versioning](https://semver.org/).
+1. **Update version**: Manually update the version in `manifest.json` and `package.json` following [Semantic Versioning](https://semver.org/).
 
-2. **Update package.json**: Ensure the version in `package.json` matches the version in `manifest.json` (the CI workflow will verify this).
+2. **Update versions.json**: Add an entry mapping the new version to the correct `minAppVersion` in `versions.json`.
 
-3. **Update versions.json**: Add an entry mapping the new version to the correct `minAppVersion` in `versions.json`.
+3. **Update CHANGELOG.md**: Promote release notes into a section matching the version, for example `## 0.0.1`.
 
-4. **Push to main**: Push your changes to the `main` branch. The GitHub Actions workflow will automatically:
-   - Run tests and verify that `manifest.json` and `package.json` versions match
-   - Verify that the version exists in `versions.json`
-   - Build the plugin (runs `npm run build`)
-   - Extract the version from the built `dist/manifest.json`
-   - Create a git tag matching the version exactly (no `v` prefix) if it doesn't already exist
-   - Create a GitHub release and upload `main.js`, `manifest.json`, and `styles.css` as release assets
+4. **Run validation**:
+   ```bash
+   npm run ci
+   ```
 
-   Note: The release workflow only runs on pushes to `main` (not on pull requests). You can also trigger it manually from the GitHub Actions tab.
+5. **Create and push a matching tag** from `main` without a leading `v`:
+   ```bash
+   git tag 0.0.1
+   git push origin 0.0.1
+   ```
 
-5. **Submit to Obsidian Community Plugins** (first release only):
+   The release workflow builds the plugin, generates release notes from `CHANGELOG.md`, and uploads `main.js`, `manifest.json`, and `styles.css` as individual GitHub release assets.
+
+6. **Submit to Obsidian Community Plugins** (first release only):
    - Follow the [Obsidian plugin submission guidelines](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin)
    - Submit a PR to the [obsidian-releases](https://github.com/obsidianmd/obsidian-releases) repository
 

@@ -22,6 +22,168 @@ export interface CardCallbacks {
 	onOpenInBackgroundTab: (file: TFile) => void;
 }
 
+interface ListLikeValue {
+	length(): number;
+	get(index: number): unknown;
+}
+
+interface ResolvedImageSource {
+	src: string;
+	fingerprint: string;
+}
+
+interface RenderableValue {
+	renderTo(el: HTMLElement, ctx: unknown): void;
+}
+
+function isListLikeValue(value: unknown): value is ListLikeValue {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'length' in value &&
+		'get' in value &&
+		typeof value.length === 'function' &&
+		typeof value.get === 'function'
+	);
+}
+
+function uniqueValues(values: string[]): string[] {
+	return [...new Set(values.filter((value) => value.trim().length > 0))];
+}
+
+function extractImageReferences(rawInput: string): string[] {
+	const raw = rawInput.trim();
+	if (!raw) return [];
+
+	const refs: string[] = [];
+	for (const match of raw.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) {
+		refs.push(match[1].trim());
+	}
+	for (const match of raw.matchAll(/!?\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g)) {
+		refs.push(match[1].trim());
+	}
+	if (refs.length > 0) return uniqueValues(refs);
+
+	if (/^https?:\/\//i.test(raw)) {
+		try {
+			new URL(raw);
+			return [raw];
+		} catch {
+			// Fall through to the multi-URL extractor below.
+		}
+	}
+
+	const urls = raw.match(/https?:\/\/[^\s,\])]+/gi);
+	if (urls && urls.length > 0) return uniqueValues(urls);
+
+	// Obsidian can stringify an image list as plain paths separated by spaces,
+	// commas, or newlines (for example: "media/a.jpg media/b.jpg"). Treat
+	// those as a gallery instead of one unresolvable linkpath.
+	const localImagePaths = Array.from(
+		raw.matchAll(/(?:^|[\s,])([^,\s]+?\.(?:avif|bmp|gif|jpe?g|png|svg|webp))(?=$|[\s,])/gi),
+		(match) => match[1].trim(),
+	);
+	if (localImagePaths.length > 0) return uniqueValues(localImagePaths);
+
+	return [raw.replace(/^!\s*/, '').trim()];
+}
+
+function hasCustomToString(value: unknown): value is { toString(): string } {
+	return typeof value === 'object' && value !== null && value.toString !== Object.prototype.toString;
+}
+
+function hasRenderTo(value: unknown): value is RenderableValue {
+	return typeof value === 'object' && value !== null && 'renderTo' in value && typeof value.renderTo === 'function';
+}
+
+function imageReferencesFromValue(value: unknown): string[] {
+	if (!value || value instanceof NullValue) return [];
+	if (isListLikeValue(value)) {
+		const refs: string[] = [];
+		for (let i = 0; i < value.length(); i += 1) {
+			refs.push(...imageReferencesFromValue(value.get(i)));
+		}
+		return uniqueValues(refs);
+	}
+	const raw = typeof value === 'string' ? value : hasCustomToString(value) ? value.toString() : '';
+	return extractImageReferences(raw);
+}
+
+function fileSignature(file: { stat?: { mtime?: number; size?: number } }): string {
+	const { mtime, size } = file.stat ?? {};
+	return [mtime, size].filter((part): part is number => typeof part === 'number').join('-');
+}
+
+function appendCacheKey(src: string, key: string): string {
+	if (!key) return src;
+	return `${src}${src.includes('?') ? '&' : '?'}v=${encodeURIComponent(key)}`;
+}
+
+function resolveImageSource(rawRef: string, filePath: string, ctx: CardRenderCtx): ResolvedImageSource | null {
+	const ref = rawRef.trim();
+	if (!ref) return null;
+	if (/^https?:\/\//i.test(ref)) {
+		return { src: ref, fingerprint: `url:${ref}` };
+	}
+
+	const app = ctx.app;
+	if (!app) return null;
+	const file = app.metadataCache.getFirstLinkpathDest(ref, filePath);
+	if (!file) return null;
+
+	const signature = fileSignature(file);
+	const resourcePath = app.vault.getResourcePath(file);
+	return {
+		src: appendCacheKey(resourcePath, signature),
+		fingerprint: `file:${file.path}:${signature}:${resourcePath}`,
+	};
+}
+
+function imageSourcesFromRenderedValue(value: unknown, ctx: CardRenderCtx): ResolvedImageSource[] {
+	if (!hasRenderTo(value)) return [];
+	try {
+		const scratchEl = ctx.doc.createElement('div');
+		value.renderTo(scratchEl, ctx.app.renderContext);
+		return Array.from(scratchEl.querySelectorAll<HTMLImageElement>('img[src]'))
+			.map((img) => img.getAttribute('src')?.trim() ?? '')
+			.filter((src) => src.length > 0)
+			.map((src) => ({ src, fingerprint: `rendered:${src}` }));
+	} catch (error) {
+		console.warn('KanbanView: unable to render image property value for gallery extraction', error);
+		return [];
+	}
+}
+
+function sourceDedupKey(src: string): string {
+	try {
+		const url = new URL(src);
+		url.searchParams.delete('v');
+		return url.toString();
+	} catch {
+		return src.replace(/([?&])v=[^&]+(&|$)/, '$1').replace(/[?&]$/, '');
+	}
+}
+
+function dedupeSources(sources: ResolvedImageSource[]): ResolvedImageSource[] {
+	const seen = new Set<string>();
+	return sources.filter((source) => {
+		const key = sourceDedupKey(source.src);
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+}
+
+function getCardImageSources(entry: BasesEntry, filePath: string, ctx: CardRenderCtx): ResolvedImageSource[] {
+	if (!ctx.imagePropertyId) return [];
+	const value = entry.getValue(ctx.imagePropertyId);
+	const parsedSources = uniqueValues(imageReferencesFromValue(value))
+		.map((ref) => resolveImageSource(ref, filePath, ctx))
+		.filter((source): source is ResolvedImageSource => source !== null);
+	const renderedSources = parsedSources.length <= 1 ? imageSourcesFromRenderedValue(value, ctx) : [];
+	return dedupeSources([...parsedSources, ...renderedSources]);
+}
+
 export function computeCardFingerprint(entry: BasesEntry, ctx: CardRenderCtx): string {
 	const parts: string[] = [];
 	for (const propId of ctx.order) {
@@ -36,6 +198,7 @@ export function computeCardFingerprint(entry: BasesEntry, ctx: CardRenderCtx): s
 	if (ctx.imagePropertyId) {
 		const val = entry.getValue(ctx.imagePropertyId);
 		parts.push(val === null ? '' : val.toString());
+		parts.push(...getCardImageSources(entry, entry.file.path, ctx).map((source) => source.fingerprint));
 	}
 	return parts.join('\x00');
 }
@@ -59,30 +222,15 @@ export function renderCardCover(
 	filePath: string,
 	ctx: CardRenderCtx,
 ): boolean {
-	if (!ctx.imagePropertyId) return false;
-	const value = entry.getValue(ctx.imagePropertyId);
-	if (!value || value instanceof NullValue) return false;
-	const raw = value.toString().trim();
-	if (!raw) return false;
+	const sources = getCardImageSources(entry, filePath, ctx);
+	if (sources.length === 0) return false;
 
-	if (/^https?:\/\//i.test(raw)) {
-		coverEl.createEl('img', { attr: { src: raw, alt: '' } });
-		return true;
+	if (sources.length > 1) {
+		coverEl.classList.add(CSS_CLASSES.CARD_COVER_GALLERY);
 	}
 
-	let linkText = raw.replace(/^!\s*/, '');
-	const wikiMatch = linkText.match(/^\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]$/);
-	if (wikiMatch) linkText = wikiMatch[1];
-	linkText = linkText.trim();
-	if (!linkText) return false;
-
-	const app = ctx.app;
-	if (!app) return false;
-	const file = app.metadataCache.getFirstLinkpathDest(linkText, filePath);
-	if (!file) return false;
-
-	coverEl.createEl('img', {
-		attr: { src: app.vault.getResourcePath(file), alt: '' },
+	sources.forEach((source) => {
+		coverEl.createEl('img', { attr: { src: source.src, alt: '' } });
 	});
 	return true;
 }
@@ -107,7 +255,7 @@ export function createCard(entry: BasesEntry, ctx: CardRenderCtx, cb: CardCallba
 	renderCardTitle(titleEl, entry, ctx);
 
 	for (const propertyId of ctx.order) {
-		if (propertyId === ctx.groupByPropertyId) continue;
+		if (propertyId === ctx.groupByPropertyId || propertyId === ctx.imagePropertyId) continue;
 		const value = entry.getValue(propertyId);
 		if (!value || value instanceof NullValue) continue;
 		if (!value.toString().trim()) continue;

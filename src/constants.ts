@@ -6,7 +6,7 @@
 export const UNCATEGORIZED_LABEL = 'Uncategorized';
 
 /** Source id registered with Obsidian's Page Preview core plugin */
-export const HOVER_LINK_SOURCE_ID = 'kanban-bases-view';
+export const HOVER_LINK_SOURCE_ID = 'kanban-bases-view-cl';
 
 /** Color palette for column accents, using Obsidian design system variables */
 export const COLOR_PALETTE = [
@@ -85,6 +85,7 @@ export const CSS_CLASSES = {
 	CARD_TITLE: 'obk-card-title',
 	CARD_PREVIEW: 'obk-card-preview',
 	CARD_COVER: 'obk-card-cover',
+	CARD_COVER_GALLERY: 'obk-card-cover--gallery',
 	CARD_COVER_FIT_COVER: 'obk-card-cover--fit-cover',
 	CARD_COVER_FIT_CONTAIN: 'obk-card-cover--fit-contain',
 	CARD_ACTIVE: 'obk-card--active',

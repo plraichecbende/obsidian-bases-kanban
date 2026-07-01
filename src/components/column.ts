@@ -90,6 +90,7 @@ export function createColumn(
 	bodyEl.setAttribute(DATA_ATTRIBUTES.SORTABLE_CONTAINER, 'true');
 
 	entries.forEach((entry) => {
+		ctx.cardFingerprints.set(entry.file.path, computeCardFingerprint(entry, ctx.card));
 		bodyEl.appendChild(createCard(entry, ctx.card, ctx.cardCb));
 	});
 

@@ -262,7 +262,7 @@ export function createMockFn(): MockFn {
 }
 
 // Mock App
-export function createMockApp(imageFiles: Record<string, { path: string }> = {}): App & {
+export function createMockApp(imageFiles: Record<string, Partial<TFile> & { path: string }> = {}): App & {
 	workspace: {
 		openLinkText: MockFn;
 		trigger: MockFn;

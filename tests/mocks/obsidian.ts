@@ -55,11 +55,16 @@ export interface App {
 		processFrontMatter(file: TFile, fn: (frontmatter: any) => void | Promise<void>): Promise<void>;
 		renameFile(file: TFile, newPath: string): Promise<void>;
 	};
+	metadataCache: {
+		getFirstLinkpathDest(linkpath: string, sourcePath: string): TFile | null;
+	};
 	vault: {
 		getMarkdownFiles(): TFile[];
 		getFolderByPath(path: string): { path: string; name: string } | null;
 		getAbstractFileByPath(path: string): TFile | null;
 		getResourcePath(file: { path: string }): string;
+		on?(name: 'modify', callback: (file: TFile) => void): EventRef;
+		offref?(ref: EventRef): void;
 	};
 	renderContext: RenderContext;
 }
@@ -67,6 +72,8 @@ export interface App {
 // Real class: RenderContext implements HoverParent. Plugins don't construct it;
 // they consume the singleton at App.renderContext. The mock is just an opaque
 // token threaded through Value.renderTo() for parity with the production API.
+export type EventRef = { id?: string };
+
 export class RenderContext {
 	hoverPopover: unknown = null;
 }

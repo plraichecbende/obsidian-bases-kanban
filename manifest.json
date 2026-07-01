@@ -1,10 +1,10 @@
 {
-	"id": "kanban-bases-view",
-	"name": "Kanban Bases View",
-	"version": "0.10.1",
+	"id": "kanban-bases-view-cl",
+	"name": "Kanban Bases View CL",
+	"version": "0.0.1",
 	"minAppVersion": "1.10.2",
-	"description": "A kanban-style drag-and-drop custom view for Bases.",
-	"author": "I. Welch Canavan",
-	"authorUrl": "https://welchcanavan.com",
+	"description": "A customized kanban-style drag-and-drop custom view for Obsidian Bases.",
+	"author": "Christian Lempa",
+	"authorUrl": "https://github.com/ChristianLempa",
 	"isDesktopOnly": false
 }

@@ -10,7 +10,7 @@ setupTestEnvironment();
 describe('Plugin Registration', () => {
 	test('Plugin loads and registers view correctly', async () => {
 		// Mock the plugin's registerBasesView method
-		let registeredViewType: string | null = null;
+		const registeredViewTypes: string[] = [];
 		let registeredName: string | null = null;
 		let registeredIcon: string | null = null;
 		let factoryController: any = null;
@@ -32,7 +32,7 @@ describe('Plugin Registration', () => {
 				options: () => any[];
 			},
 		) {
-			registeredViewType = viewType;
+			registeredViewTypes.push(viewType);
 			registeredName = options.name;
 			registeredIcon = options.icon;
 
@@ -54,7 +54,7 @@ describe('Plugin Registration', () => {
 		await plugin.onload();
 
 		// Verify registration
-		assert.strictEqual(registeredViewType, KANBAN_VIEW_TYPE, 'View type should match constant');
+		assert.deepStrictEqual(registeredViewTypes, [KANBAN_VIEW_TYPE], 'Custom view type should be registered once');
 		assert.strictEqual(registeredName, 'Kanban', 'View name should be "Kanban"');
 		assert.strictEqual(registeredIcon, 'columns', 'View icon should be "columns"');
 		assert.notStrictEqual(factoryController, null, 'Factory should receive controller');
